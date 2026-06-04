@@ -2,8 +2,8 @@
 name: network-collection-triage
 description: >-
   Triage bug reports, CI failures, and GitHub issues across Ansible network
-  collections (cisco.ios, cisco.iosxr, cisco.nxos, arista.eos, junos,
-  ansible.netcommon, ansible.utils). Two modes: scan mode for bulk weekly
+  collections (cisco.ios, cisco.iosxr, cisco.nxos, arista.eos,
+  ansible.netcommon, ansible.utils, etc.). Two modes: scan mode for bulk weekly
   triage across all repos, and direct mode for deep triage of a single
   issue. Network-specific: uses cross-collection cascade detection for
   shared dependencies (netcommon, utils) and known network CI failure
@@ -34,7 +34,7 @@ argument-hint: "[<github-issue-url>] [--scan]"
 Triage bug reports, CI failures, and GitHub issues across Ansible network
 collections. Categorize items, check known network CI failure patterns,
 assess severity with cross-collection cascade detection for shared
-dependencies (`ansible.netcommon`, `ansible.utils`), and produce structured
+dependencies (`ansible.netcommon`, `ansible.utils`, `ansible.pylibssh`), and produce structured
 JSON and markdown output suitable for downstream dashboards or reports.
 
 ### Why network-specific
@@ -43,7 +43,7 @@ This skill exists in `network_content` rather than `ansible-collection-sdlc`
 because the triage logic depends on network-specific domain knowledge:
 
 - **Cross-collection cascade detection** tied to the `ansible.netcommon` and
-  `ansible.utils` dependency chain shared by all network collections
+  `ansible.utils` and `ansible.pylibssh` dependency chain shared by all network collections
 - **Known CI failure patterns** specific to network collection CI (Galaxy
   version lag for netcommon, persistent connection timeout leaks, etc.)
 - **Scoped repo list** — queries a fixed set of network collection repositories
@@ -108,9 +108,9 @@ for additional context if needed (collection, platform, Ansible version).
 | `cisco.iosxr` | Cisco IOS-XR | network_cli, netconf |
 | `cisco.nxos` | Cisco NX-OS | network_cli, httpapi |
 | `arista.eos` | Arista EOS | network_cli, httpapi |
-| `junipernetworks.junos` | Juniper JunOS | network_cli, netconf |
 | `cisco.asa` | Cisco ASA | network_cli |
 | `vyos.vyos` | VyOS | network_cli |
+| `ansible.scm` | Manage Git repositories with Ansible | git |
 
 **GitHub org**: `ansible-collections`
 
@@ -151,9 +151,9 @@ ansible-collections/cisco.ios
 ansible-collections/cisco.iosxr
 ansible-collections/cisco.nxos
 ansible-collections/arista.eos
-ansible-collections/junipernetworks.junos
 ansible-collections/cisco.asa
 ansible-collections/vyos.vyos
+ansible-collections/ansible.scm
 ```
 
 **Filter and record results based on the timeline (default: T-14 days)**
@@ -243,7 +243,7 @@ Escalators can only raise severity, never lower it.
 
 | Condition | Action |
 |---|---|
-| Bug in `ansible.netcommon`, `ansible.utils` or `ansible.pylibssh` | **Always Critical** — cascade risk |
+| Bug in `ansible.netcommon`, `ansible.utils` or `ansible.pylibssh` | **Critical** — Potential cascade risk, assign based on the severity of the bug |
 | Data loss or security issue | **Critical** |
 | Multiple collections failing with same root cause | **Critical** — cascade event |
 
@@ -261,9 +261,8 @@ Dependency chain:
 ```
 ansible.pylibssh ──→ ansible.netcommon
 ansible.netcommon ──→ cisco.ios, cisco.iosxr, cisco.nxos,
-                      arista.eos, junipernetworks.junos,
-                      cisco.asa, vyos.vyos
-ansible.utils ────→ (same downstream consumers)
+                      arista.eos, cisco.asa, vyos.vyos
+ansible.utils ────→ (same downstream consumers), ansible.scm
 ```
 
 ### Step 7 — Generate structured output
@@ -350,14 +349,14 @@ The agent **must** emit valid JSON (UTF-8). Top-level shape:
 | `url` | string | Canonical GitHub issue/PR URL. |
 | `state` | string | e.g. `open`, `closed`, `merged` (PRs). |
 | `severity` | string | `critical` \| `high` \| `medium` \| `low`. |
-| `summary` | string | Under five lines; rationale for severity. |
+| `summary` | string | Detailed summary of the issue or PR in five lines; rationale for severity. |
 | `labels` | array | Strings or `{ "name": "..." }`. |
 | `assignees` | array | Prefer `[{ "login": "octocat" }, ...]` or string[] for broad consumer compatibility. |
 | `author` | string (optional) | PR author login. |
 | `createdAt` / `updatedAt` | string (optional) | ISO dates from `gh --json`. |
 | `component` | string | Best SME/component guess. |
 | `recommendedOwner` | string | SME or team contact label. |
-| `nextAction` | string | One line. |
+| `nextAction` | string | Recommended action to take for the issue or PR. Under five lines. |
 | `reviewStatus` | string (PR) | Approved / changes requested / pending. |
 
 **Completeness**: `sum(repositories[].issues.length)` must equal the open issues you analyzed for the listing (per workflow rules); same for PRs. Nothing omitted for brevity.
@@ -448,7 +447,7 @@ Every triage produces this structured report:
   user to run `gh auth login` and stop.
 - **Rate limiting**: GitHub API has rate limits. If hitting limits during scan
   mode, space out requests or reduce the repo list to critical collections first
-  (netcommon, utils, ios, iosxr, nxos, eos).
+  (netcommon, utils, pylibssh, ios, iosxr, nxos, eos, scm).
 - **Empty results**: If no open bugs or PRs are found for a repo, skip it
   silently. If ALL repos return empty, report "No open items found across
   network collections" and confirm the time window.
