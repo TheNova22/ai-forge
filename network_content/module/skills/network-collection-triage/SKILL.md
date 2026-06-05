@@ -157,7 +157,7 @@ ansible-collections/vyos.vyos
 ansible-collections/ansible.scm
 ```
 
-**Filter and record results based on the timeline (default: T-14 days)**
+### Filter and record results based on the timeline (default: T-14 days)
 
 - **Ignore** PRs where isDraft is True
 - **Ignore** closed issues
@@ -289,8 +289,7 @@ Create a detailed markdown report of the triage results, ensuring all the issues
 
 ### Step 7 — Generate the JSON
 
-Generate a JSON file of the triage results, ensuring all the issues and PRs are listed in the JSON file. It should be written in the user's current working directory. **Do not** use any summary data from the markdown, utilize the data generated from relevant commands and generate the json.
-The format of the JSON file should be as mentioned below:
+Generate a JSON file of the triage results, ensuring all the issues and PRs are listed in the JSON file. It should be written in the user's current working directory. **Do not** use any summary data from the markdown, utilize the data generated from relevant commands and generate the json. The format of the JSON file should be as mentioned below:
 
 ## Output — JSON schema
 
