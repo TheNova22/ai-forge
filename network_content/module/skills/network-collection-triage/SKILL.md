@@ -277,17 +277,25 @@ The JSON file is the primary output — it can be loaded by a separate
 dashboard frontend or consumed by other tools. The markdown file is for
 quick human review.
 
-### Step 8 — Present results
+**Validate the JSON before finishing:**
+
+```bash
+python network-collection-triage/scripts/validate_triage_report.py triage-report-YYYY-MM-DD.json
+```
+
+Fix any schema or consistency errors reported by the validator.
+
+### Step 7.1 — Present results
 
 Share both file links and a brief summary: total items, breakdown by
 severity, any critical items or cross-collection signals that need
 immediate attention.
 
-### Step 6 — Generate the markdown
+### Step 7.2 — Generate the markdown
 
 Create a detailed markdown report of the triage results, ensuring all the issues and PRs are listed in the report. It should be written in the user's current working directory.
 
-### Step 7 — Generate the JSON
+### Step 7.3 — Generate the JSON
 
 Generate a JSON file of the triage results, ensuring all the issues and PRs are listed in the JSON file.
 It should be written in the user's current working directory.
@@ -296,15 +304,18 @@ The format of the JSON file should be as mentioned below:
 
 ## Output — JSON schema
 
-The agent **must** emit valid JSON (UTF-8). Top-level shape:
+The canonical JSON Schema lives at
+**`schema/triage-report.schema.json`** (relative to this skill directory).
+The agent **must** emit valid JSON (UTF-8) that passes
+`scripts/validate_triage_report.py`. Top-level shape:
 
 | Field | Type | Description |
 |--------|------|-------------|
 | `schemaVersion` | string | e.g. `"1.1"` |
 | `meta` | object | `generatedAt` (ISO 8601), `timelineStart`, `timelineEnd`, `repos` (short names `owner/repo`) |
-| `statistics` | object | `totalIssues`, `totalPrs`, `criticalCount`, `staleCount`, plus optional `issuesOpen`, `prsOpen`, etc. |
+| `statistics` | object | Required: `totalIssues`, `totalPrs`, `criticalCount`. Optional: `staleCount`, `majorCount`, `minorCount`, `trivialCount`, `issuesOpen`, `prsOpen`, `issuesWithAssignees`, `prsApproved`, `averagePrAgeDays`, etc. |
 | `priorityMatrix` | object | Keys `critical`/`high`/`medium`/`low`, each with `immediate`, `thisWeek`, `thisMonth`, `backlog` counts (numbers). |
-| `criticalItems` | array | Objects with at least `url`, `title`, `repo`, `severity`, `impact`, `recommendedOwner`, `nextAction`, `component`. |
+| `criticalItems` | array | Objects with at least `url`, `title`, `repo`, `severity` (`critical`/`major`/`minor`/`trivial`), `impact`, `recommendedOwner`, `nextAction`, `component`. |
 | `highPriorityItems` | array | Same style as critical, subset for highlighting. |
 | `prReviewHighlights` | array | PR-focused objects (`url`, `title`, `reviewStatus`, `recommendedAction`, …). |
 | `recommendedActions` | array of string | Short imperative lines (assign, escalate, merge-ready, …). |
@@ -317,11 +328,11 @@ The agent **must** emit valid JSON (UTF-8). Top-level shape:
 |--------|------|-------------|
 | `name` | string | `owner/repo` |
 | `url` | string | GitHub repo URL |
-| `issues` | array | All issues in window (see row shape). |
-| `pullRequests` | array | All PRs in window (same row shape + PR fields). |
-| `ci-status` | object | Latest main-branch CI from Step 2 (`gh run list --limit 5`). |
+| `issues` | array | All issues in window (see **Issue row**). |
+| `pullRequests` | array | All PRs in window (see **Pull request row**). |
+| `ci-status` | object \| null | Latest main-branch CI from Step 2 (`gh run list --limit 5`), or `null` when CI could not be fetched. |
 
-**`ci-status` object** (per repo; omit only if `gh run list` failed for that repo)
+**`ci-status` object** (per repo; set to `null` when `gh run list` failed for that repo)
 
 | Field | Type | Description |
 |--------|------|-------------|
@@ -343,24 +354,35 @@ The agent **must** emit valid JSON (UTF-8). Top-level shape:
 | `headBranch` | string | Branch for the run. |
 | `url` | string (optional) | GitHub Actions run URL. |
 
-**Issue / PR row (fields consumers commonly read; include as many as you have from `gh` and analysis)**
+**Issue row** (`repositories[].issues[]`)
 
 | Field | Type | Notes |
 |--------|------|------|
-| `number` | number | Issue or PR number. |
+| `number` | number | Issue number. |
 | `title` | string | Plain text title. |
-| `url` | string | Canonical GitHub issue/PR URL. |
-| `state` | string | e.g. `open`, `closed`, `merged` (PRs). |
-| `severity` | string | `critical` \| `high` \| `medium` \| `low`. |
-| `summary` | string | Detailed summary of the issue or PR in five lines; rationale for severity. |
+| `url` | string | Canonical GitHub issue URL. |
+| `state` | string | `open` \| `closed`. |
+| `severity` | string | Triage severity: `critical` \| `major` \| `minor` \| `trivial`. |
+| `summary` | string | Detailed summary in ~five lines; rationale for severity. |
 | `labels` | array | Strings or `{ "name": "..." }`. |
 | `assignees` | array | Prefer `[{ "login": "octocat" }, ...]` or string[] for broad consumer compatibility. |
-| `author` | string (optional) | PR author login. |
+| `author` | string (optional) | Issue author login. |
 | `createdAt` / `updatedAt` | string (optional) | ISO dates from `gh --json`. |
 | `component` | string | Best SME/component guess. |
 | `recommendedOwner` | string | SME or team contact label. |
-| `nextAction` | string | Recommended action to take for the issue or PR. Under five lines. |
-| `reviewStatus` | string (PR) | Approved / changes requested / pending. |
+| `nextAction` | string | Recommended action. Under five lines. |
+
+**Pull request row** (`repositories[].pullRequests[]`)
+
+Same fields as **Issue row**, plus:
+
+| Field | Type | Notes |
+|--------|------|------|
+| `state` | string | `open` \| `closed` \| `merged`. |
+| `reviewStatus` | string | Required. e.g. `APPROVED`, `CHANGES_REQUESTED`, `REVIEW_REQUIRED`. |
+
+`priorityMatrix` buckets (`critical`/`high`/`medium`/`low`) are separate from per-item
+triage severity (`critical`/`major`/`minor`/`trivial` above).
 
 **Completeness**: `sum(repositories[].issues.length)` must equal the open issues you analyzed for the listing (per workflow rules); same for PRs. Nothing omitted for brevity.
 
