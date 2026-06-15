@@ -36,6 +36,9 @@ lola install cloud_content -a opencode
 | `aws-terminator-analyze` | Analyze Ansible AWS collection PRs to determine required aws-terminator changes |
 | `aws-terminator-implement` | Implement terminator classes and IAM permissions in aws-terminator repository |
 | `aws-terminator-workflow` | End-to-end orchestrator: analyze → implement → test → PR creation |
+| `collection-backport-status-check` | Check backport and patchback workflow blockers for Ansible collection stable branches. Detect open backport PRs and patchback failures that must be resolved before creating a release prep PR. Complements version analysis skills by focusing on process blockers. By default, checks the two most recent stable branches. |
+
+Skills live under [`module/skills/`](module/skills/).
 
 ### Commands
 
@@ -99,10 +102,10 @@ cloud_content/
 ├── README.md           # This file
 └── module/             # Lola-importable content
     ├── AGENTS.md       # Module-level instructions
-    ├── skills/         # Skill folders with SKILL.md
-    ├── commands/       # Slash command .md files
-    ├── agents/         # Subagent .md files
-    └── mcps.json       # MCP server configuration
+    ├── mcps.json       # MCP server configuration
+    └── skills/         # Skill folders with SKILL.md
+        └── collection-backport-status-check/
+            └── SKILL.md
 ```
 
 ## Contributing
