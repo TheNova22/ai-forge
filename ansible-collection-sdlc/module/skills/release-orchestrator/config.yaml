@@ -1,0 +1,37 @@
+---
+# Release orchestrator configuration — single source of truth (SOT)
+#
+# All paths, remotes, and repository lists come from this file.
+# Override location with: /release-orchestrator --config <path>
+#
+# Each repository entry is one parallel release session (Section 1).
+
+# Optional: base directory containing ansible_collections/<namespace>/<name> checkouts.
+collections_path: /home/jsogikar/collections/ansible_collections
+
+# Optional: Git remote name for the canonical upstream repository.
+# Default: upstream
+# upstream_remote: upstream
+
+# Optional: Python virtual environment for antsibull-changelog and other release tooling.
+venv_path: /home/jsogikar/venvs/a220p314
+
+repositories:
+  - id: ansible.netcommon
+    upstream: ansible-collections/ansible.netcommon
+    enabled: true
+  - id: ansible.utils
+    upstream: ansible-collections/ansible.utils
+    enabled: true
+  - id: cisco.ios
+    upstream: ansible-collections/cisco.ios
+    enabled: true
+  - id: cisco.nxos
+    upstream: ansible-collections/cisco.nxos
+    enabled: true
+  - id: cisco.iosxr
+    upstream: ansible-collections/cisco.iosxr
+    enabled: true
+  - id: arista.eos
+    upstream: ansible-collections/arista.eos
+    enabled: true
