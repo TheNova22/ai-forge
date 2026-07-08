@@ -84,7 +84,7 @@ appears in tests.
 
 | Step | Action |
 |------|--------|
-| 1 | Sync `main` from **upstream**; branch locally. [Branch / remotes](reference/resolution-details.md#branch) |
+| 1 | Sync `main` from **upstream**; branch locally. [Branch / remotes](reference/resolution-details.md) |
 | 2 | Read cited source, pattern, playbook-dir siblings, integration `_populate_config` / `_remove_config` if present |
 | 3 | One `repro_<module>_<slug>.yml`; edit **same file** on failure — no copies |
 | 4 | `ansible-playbook` in venv; confirm bug; save **before** snippet |
@@ -93,8 +93,8 @@ appears in tests.
 | 7 | `changelogs/fragments/` |
 | 8 | Update unit case → unit + sanity tox |
 | 9 | Update integration `.yml` case after unit+sanity pass |
-| 10 | Create `sim_<module>_<slug>.yml` mirroring integration tasks (+ populate/remove); run on device. [Integration sim](reference/resolution-details.md#integration-simulation-playbook) |
-| 11 | Ask if extra device revert needed. [Device cleanup](reference/resolution-details.md#device-cleanup) |
+| 10 | Create `sim_<module>_<slug>.yml` mirroring integration tasks (+ populate/remove); run on device. [Integration sim](reference/resolution-details.md) |
+| 11 | Ask if extra device revert needed. [Device cleanup](reference/resolution-details.md) |
 | 12 | Push **origin** (fork); open **draft** PR against **upstream**. [Upstream PR](reference/upstream-pr.md) |
 
 ## Critical rules
