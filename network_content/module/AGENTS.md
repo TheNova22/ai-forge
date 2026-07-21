@@ -38,7 +38,9 @@ Module provides skills for network automation workflows specific to Ansible netw
   single confirmed parser, rm_template, or documentation (EXAMPLES) gap from validator output. Acts as
   a senior Ansible network automation engineer: prepares a collection branch, writes reproduction
   playbooks, implements the fix with changelog and tests, validates via tox, and optionally opens an
-  upstream draft PR. Invoke when a validated report exists and the user wants to fix one confirmed gap.
+  upstream draft PR. Supports `--skip-device` for code-only fixes (unit fixtures as primary mock) and
+  `--dry-run` for a local on-disk preview without git branch/commit/push/PR (local file changes are
+  still applied). Invoke when a validated report exists and the user wants to fix one confirmed gap.
   Resolves exactly one issue per invocation.
 
 ## Configuration
@@ -66,3 +68,5 @@ Module provides skills for network automation workflows specific to Ansible netw
   use scanner/validator individually only when you need intermediate output or are resuming a partial run
 - `network-issues-resolver` works on one confirmed gap at a time; run orchestrator first to get the
   validated report, then invoke resolver for each gap to fix
+- Resolver flags: `--skip-device` (no lab; unit + sanity proof) and `--dry-run` (local edits OK;
+  no branch/commit/push/PR — always communicate that local files were changed)

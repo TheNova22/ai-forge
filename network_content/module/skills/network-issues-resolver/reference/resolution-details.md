@@ -3,6 +3,10 @@
 Operational reference for `network-issues-resolver`. The skill defines the pipeline;
 this file holds commands, paths, and conventions.
 
+**Modes:** `--skip-device` and `--dry-run` are defined in
+[../SKILL.md](../SKILL.md). Device-optional procedure and mocks:
+[device-alternatives.md](device-alternatives.md).
+
 ---
 
 ## Input report
@@ -47,6 +51,10 @@ using the faulty example YAML from that block; verify with the corrected example
 
 Collection clones are **forks**. Sync `main` from **upstream** (ansible-collections), branch locally, push to **origin** (your fork) later in step 12.
 
+**`--dry-run`:** do **not** create a branch. Stay on the current branch; apply local
+edits in place so the user can preview with `git status` / `git diff`. Still do not
+commit or push.
+
 ```bash
 cd <collection-path>
 git remote -v   # confirm origin (fork) + upstream (ansible-collections)
@@ -66,6 +74,9 @@ Clean working tree before branching. Slug: 2–4 hyphenated words from parameter
 ---
 
 ## Reproduction playbook
+
+**`--skip-device`:** skip this section and steps 3–4 / 6 device runs. See
+[device-alternatives.md](device-alternatives.md).
 
 ### Before writing
 
@@ -247,12 +258,15 @@ Match wording/structure of existing fragments in the repo.
 
 ### Order
 
-1. **Corrective repro playbook** re-run passes (step 6)
+1. **Corrective repro playbook** re-run passes (step 6) — or under `--skip-device`:
+   fix applied + rationale recorded ([device-alternatives.md](device-alternatives.md))
 2. Update **unit** case → run **unit + sanity** tox (gate)
 3. Update **integration** case (source only)
-4. **Integration sim playbook** in playbook dir + run on device (step 10)
+4. **Integration sim playbook** in playbook dir + run on device (step 10) —
+   **N/A** under `--skip-device`
 
-Integration tests **cannot be run** via tox in this environment — use the sim playbook instead.
+Integration tests **cannot be run** via tox in this environment — use the sim
+playbook instead (default path), or rely on unit fixtures under `--skip-device`.
 
 ### Unit cases
 
@@ -287,6 +301,8 @@ Do **not** run `tox -e <integration-env>` or any integration playbook locally.
 ---
 
 ## Integration simulation playbook
+
+**`--skip-device`:** skip step 10 entirely (N/A).
 
 **Step 10 — after integration case updates (step 9).** CI integration cannot run here;
 simulate on the lab device with a playbook in the **playbook directory**.
@@ -356,6 +372,8 @@ Record pass/fail summary for deliverables. If sim fails but unit passed, reconci
 
 ## Device cleanup
 
+**`--skip-device`:** skip step 11 (N/A).
+
 **Step 11 — after corrective repro (step 6) and integration sim (step 10).** Those playbooks
 should already auto-undo via `always` teardown. This step covers **residual** state only.
 
@@ -400,9 +418,13 @@ Then proceed to [upstream-pr.md](upstream-pr.md) (step 12).
 ## Evidence to record
 
 **Before fix (step 4):** playbook command, `changed`/`commands`/traceback — PR **Before (broken)** snippet.
+Under `--skip-device`: expected broken `commands` / behavior from code or failing unit expectation.
 
 **After fix (step 6):** corrective repro run with assert pass + cleanup — PR **After (fixed)** snippet.
+Under `--skip-device`: updated unit assertions + unit tox pass. See
+[upstream-pr.md — unit-only evidence](upstream-pr.md#unit-only-evidence-skip-device).
 
-**Integration sim (step 10):** sim playbook command and assert outcome.
+**Integration sim (step 10):** sim playbook command and assert outcome — or N/A if `--skip-device`.
 
 **Cleanup / PR:** step 11 prompt if needed; step 12 **draft** PR body from template (`gh pr create --draft`).
+Under `--dry-run`: stop before step 12; show local `git status` / `git diff` and would-run commands only.

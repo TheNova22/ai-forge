@@ -124,7 +124,8 @@ Present the user with:
 4. **Artifact paths** — list all four output files
 
 To fix a single confirmed gap, hand off to `network-issues-resolver` with the report
-and user-selected issue, playbook directory, collection path, and venv.
+and user-selected issue, playbook directory (unless `--skip-device`), collection path,
+and venv. Optional flags: `--skip-device`, `--dry-run`.
 
 Do not present raw scanner hits as final results unless the user explicitly asks
 for intermediate output.

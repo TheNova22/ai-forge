@@ -1,10 +1,13 @@
 # Upstream pull request
 
-**After step 11 (device cleanup).** Ask the user:
+**After step 11 (device cleanup)** — or after step 9 when `--skip-device`. Ask the user:
 
 > “Do you want a **draft** pull request opened against upstream (`ansible-collections/<repo>`)?”
 
 Do **not** commit, push, or open a PR unless the user explicitly says yes. **Always use draft PRs** — never open a ready-for-review PR unless the user explicitly requests it.
+
+**`--dry-run`:** do **not** run this workflow. Local files may already be modified for preview.
+Show would-run commands only; ask keep / discard / continue without `--dry-run`.
 
 ---
 
@@ -41,7 +44,8 @@ git fetch upstream
 
 - Fix complete; unit + sanity tox passed
 - Changelog fragment and test updates committed-ready
-- **Before/after snippets captured** during repro (step 4) and corrective verify (step 6) — required for PR body
+- **Before/after snippets captured** during repro (step 4) and corrective verify (step 6) —
+  or from [unit-only evidence](#unit-only-evidence-skip-device) when `--skip-device` — required for PR body
 
 ---
 
@@ -186,6 +190,40 @@ tox -e <unit-env> -- tests/unit/modules/network/<platform>/test_<module>.py
 ```
 
 If reproduction was playbook-only, snippets are still **required** — do not open a PR without them unless the user accepts an exception.
+
+### Unit-only evidence (`--skip-device`)
+
+When device steps were skipped, use unit (and sanity) output instead of playbook logs.
+
+In **Testing Instructions**, state clearly:
+
+> Validated via unit + sanity only; no device run.
+
+| When | Capture |
+|------|---------|
+| **Before (broken)** | Pre-fix expected wrong/missing `commands`, or the failing unit assertion / code analysis of broken setval |
+| **After (fixed)** | Updated expected `commands` in the unit case + tox unit pass excerpt |
+
+Example:
+
+```markdown
+### Before (broken)
+
+Expected (pre-fix): `set: false` emitted no negate; unit would assert empty or wrong commands for preempt delay removal.
+
+### After (fixed)
+
+\`\`\`
+tox -e <unit-env> -- tests/unit/modules/network/<platform>/test_<module>.py
+  test_<module>_preempt_replaced ... ok
+\`\`\`
+
+Corrected expected commands in the unit case:
+
+\`\`\`
+["interface Vlan218", "hsrp 218", "no preempt delay reload 20", "preempt delay sync 55"]
+\`\`\`
+```
 
 ---
 

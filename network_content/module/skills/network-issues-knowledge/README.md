@@ -25,7 +25,8 @@ as examples, not the scan target.
 
 Pattern 11 (stale EXAMPLES) is a **documentation** gap — it does not imply a parser
 bug. Use `network-issues-resolver` to reproduce the faulty example, update `EXAMPLES`,
-and verify the corrected example.
+and verify the corrected example. Without a lab, use resolver `--skip-device` (unit +
+sanity); see `network-issues-resolver/reference/device-alternatives.md`.
 
 ## Discovery vs validation posture
 
