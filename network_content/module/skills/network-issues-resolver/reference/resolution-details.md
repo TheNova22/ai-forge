@@ -112,12 +112,7 @@ One file per issue: `repro_<module>_<slug>.yml`. On any failure or failed repro 
 
 ### Corrective playbook (step 6 — before unit tests)
 
-After the code fix (step 5), evolve the **same** repro playbook so it is **corrective**:
-any device change made during the play is **auto-undone** before the play ends.
-
-**Re-run the playbook** and confirm the fix works. Do **not** add unit test cases until this passes.
-
-Structure:
+Evolve the **same** repro playbook: wrap tasks in `block`/`always` so device changes auto-undo. Re-run; confirm fix; save **after** snippet.
 
 ```yaml
 ---
@@ -125,46 +120,18 @@ Structure:
   hosts: <from_sibling_playbooks>
   gather_facts: false
   tasks:
-    - name: Repro + verify with auto-cleanup
-      block:
-        # Optional: baseline setup (nxos_config lines) if bug needs pre-existing state
-
+    - block:
         - name: Apply / verify fix
-          cisco.<platform>.<module>:
-            config: { }  # minimal vars exposing the fix
-            state: <as needed>
+          cisco.<platform>.<module>: { config: { }, state: <as needed> }
           register: result
-
-        - name: Assert expected behavior
-          ansible.builtin.assert:
-            that:
-              - result.changed  # or false for idempotency — match expected fix
-            # - result.commands == [ '...' ]  # when asserting CLI
-
+        - ansible.builtin.assert:
+            that: [ result.changed ]  # adjust for idempotency
       always:
-        # Teardown: undo everything this play configured
-        - name: Remove test configuration
-          cisco.<platform>.<module>:
-            config: { }
-            state: deleted   # or purged / negate vars — match module capability
+        - cisco.<platform>.<module>: { config: { }, state: deleted }
           ignore_errors: true
-
-        # And/or raw CLI teardown mirroring integration _remove_config.yaml:
-        - name: Remove baseline CLI
-          cisco.<platform>.nxos_config:  # or ios_config, etc.
-            lines:
-              - default interface Vlan218
-              - no feature hsrp
-            ignore_errors: true
 ```
 
-Rules:
-
-- Use `block` / `always` (or `rescue` only if needed) so teardown runs even on assert failure
-- Teardown must reverse **all** setup + test tasks in this playbook
-- Read integration `_remove_config.yaml` for the module when it exists — mirror its lines
-- Iterate **same file** until repro + verify + cleanup succeed in one run
-- Save **after (fixed)** snippet from this run for the PR
+Rules: teardown reverses all setup; read `_remove_config.yaml` for reference; iterate same file.
 
 ### Run
 
@@ -187,23 +154,7 @@ Install collection editable if siblings do (`ansible-galaxy collection install -
 | 10 | `state: replaced`; partial sub-keys in want; extra sub-keys on device |
 | 11 | Copy task vars verbatim from `EXAMPLES`; expect argument validation failure or wrong module behavior |
 
-### Pattern 11 — stale EXAMPLES repro and fix
-
-1. Read `EXAMPLES` from `plugins/modules/<prefix><module>.py` at the cited `File:Line`
-2. Extract the failing YAML task block (the one using removed/renamed/wrong-type params)
-3. Build `repro_<module>_<slug>.yml` with those vars — minimal host/connection from siblings
-4. Run playbook; capture **before** evidence:
-   - `failed` task with argument validation error, or
-   - unexpected `changed`/`commands` if vars parse but behavior is wrong
-5. Fix `EXAMPLES` in the module file — align paths, types, nesting, and `state` with argspec;
-   use integration test task vars as the working reference format
-6. Update the **same** repro playbook with the corrected example vars; re-run:
-   - task should succeed (or assert expected module result for configure examples)
-   - save **after** snippet for the PR
-7. Changelog: `minor_changes` or `docfixes` (match existing fragment categories)
-8. Run **sanity** tox — module documentation is validated here; unit tests usually unchanged
-9. Update integration `.yml` only if the stale example was mirrored in test cases
-10. Optional sim playbook using the corrected example for device-level configure examples
+**Pattern 11 (stale EXAMPLES):** use `EXAMPLES` task vars as repro input (step 3); fix the `EXAMPLES` block in `plugins/modules/` (step 5); sanity tox validates docs. See [patterns.md](../../network-issues-knowledge/patterns.md) for confirm/drop bars.
 
 ---
 
@@ -224,25 +175,15 @@ device teardown (unless the example is a configure task that changes device stat
 
 ## Changelog
 
-`changelogs/fragments/<short-description>.yml`:
+`changelogs/fragments/<short-description>.yml`. Match wording of existing fragments.
 
 ```yaml
 ---
 bugfixes:
   - >-
     <module> - <user-visible fix> (fixes <parameter>).
+# Pattern 11: use minor_changes; text: "update EXAMPLES to match current argspec for <parameter>."
 ```
-
-For Pattern 11:
-
-```yaml
----
-minor_changes:
-  - >-
-    <module> - update EXAMPLES to match current argspec for <parameter>.
-```
-
-Match wording/structure of existing fragments in the repo.
 
 ---
 
@@ -331,29 +272,14 @@ Flatten `include_tasks` into inline tasks — the sim playbook must be **self-co
 - name: Simulate integration — <module> <state>
   hosts: <from_sibling_playbooks>
   gather_facts: false
-  vars:
-    test_int1: <from inventory or sibling playbook vars>
   tasks:
   - block:
-      - name: Remove existing config (start)
-        # ... from _remove_config.yaml
-
-      - name: Populate config
-        # ... from _populate_config.yaml
-
-      - name: <state> — under test
-        cisco.<platform>.<module>:
-          config: { }
-          state: replaced
+      # inline: _remove_config tasks, then _populate_config tasks
+      - cisco.<platform>.<module>: { config: { }, state: replaced }
         register: result
-
-      - name: Assert integration expectations
-        ansible.builtin.assert:
-          that: [ ... ]  # match integration case asserts
-
+      - ansible.builtin.assert: { that: [ ... ] }
     always:
-      - name: Remove config (end)
-        # ... from _remove_config.yaml
+      # inline: _remove_config tasks
 ```
 
 ### Run simulation
@@ -372,59 +298,18 @@ Record pass/fail summary for deliverables. If sim fails but unit passed, reconci
 
 ## Device cleanup
 
-**`--skip-device`:** skip step 11 (N/A).
+**`--skip-device`:** N/A.
 
-**Step 11 — after corrective repro (step 6) and integration sim (step 10).** Those playbooks
-should already auto-undo via `always` teardown. This step covers **residual** state only.
-
-1. If corrective + sim `always` blocks ran successfully, note device should be clean
-2. **Ask the user:** “Do you want to revert any remaining device changes?”
-3. **Do not run extra cleanup** unless the user explicitly says yes or teardown failed partway
-
-### Deriving revert commands
-
-From the repro playbook tasks and `result.commands` output, work out the inverse:
+Step 11: ask user before reverting residual device state. Revert only with explicit approval.
 
 | What was configured | Typical revert |
 |---------------------|----------------|
-| New interface / VLAN SVI | `no interface Vlan218` or remove L3 config |
+| New interface / VLAN SVI | `no interface Vlan218` |
 | Feature enabled | `no feature <name>` |
-| HSRP / standby block | `no hsrp <group>` under interface, or `no standby …` per sub-key |
-| Scalar knob set | `no <command>` form per platform CLI |
-| List merge item added | `no …` for that item or `state: deleted` / `purged` if module supports it |
+| HSRP / standby block | `no hsrp <group>` under interface |
+| Scalar knob set | `no <command>` |
+| List merge item added | `no …` or `state: deleted` / `purged` |
 
-Prefer a **minimal cleanup playbook** in the same playbook directory (same hosts/connection
-as repro) rather than ad-hoc CLI — unless the user prefers manual commands.
+Write a minimal `cleanup_<module>_<slug>.yml` in playbook dir if user approves. Then proceed to [upstream-pr.md](upstream-pr.md).
 
-Example cleanup task pattern:
-
-```yaml
-- name: Revert repro config
-  ansible.netcommon.cli_config:
-    lines:
-      - no interface Vlan218
-    # or platform-specific module with state: deleted / negate vars
-```
-
-Name it clearly, e.g. `cleanup_<module>_<slug>.yml`. One cleanup file; iterate in place if needed.
-
-If revert is risky or ambiguous (shared lab, partial state), list proposed commands and
-let the user confirm or edit before running.
-
-Then proceed to [upstream-pr.md](upstream-pr.md) (step 12).
-
----
-
-## Evidence to record
-
-**Before fix (step 4):** playbook command, `changed`/`commands`/traceback — PR **Before (broken)** snippet.
-Under `--skip-device`: expected broken `commands` / behavior from code or failing unit expectation.
-
-**After fix (step 6):** corrective repro run with assert pass + cleanup — PR **After (fixed)** snippet.
-Under `--skip-device`: updated unit assertions + unit tox pass. See
-[upstream-pr.md — unit-only evidence](upstream-pr.md#unit-only-evidence-skip-device).
-
-**Integration sim (step 10):** sim playbook command and assert outcome — or N/A if `--skip-device`.
-
-**Cleanup / PR:** step 11 prompt if needed; step 12 **draft** PR body from template (`gh pr create --draft`).
-Under `--dry-run`: stop before step 12; show local `git status` / `git diff` and would-run commands only.
+Evidence format: see [upstream-pr.md](upstream-pr.md).

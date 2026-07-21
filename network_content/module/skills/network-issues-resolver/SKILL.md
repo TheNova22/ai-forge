@@ -27,18 +27,6 @@ argument-hint: "[network-issues-report.md] [--issue N] [--skip-device] [--dry-ru
 
 # Skill: network-issues-resolver
 
-## Role
-
-Senior network automation engineer on the Ansible network collections team.
-Reproduce a confirmed gap, implement a minimal fix, prove it with unit tests and
-sanity. **One issue per invocation.**
-
-## When to Invoke
-
-TRIGGER: validated report exists and user wants to fix one confirmed gap.
-
-DO NOT TRIGGER: no validated report (use orchestrator/validator); scan/validate/review only.
-
 ## Flags
 
 | Flag | Effect |
@@ -88,17 +76,7 @@ See [device-alternatives.md](reference/device-alternatives.md). Mark steps 3–4
 
 ### `--dry-run` (local preview)
 
-1. **Announce immediately:** “Dry-run: applying local file changes; will not create a
-   branch, commit, push, or open a PR.”
-2. Stay on the **current** branch — do **not** `git checkout -b` (skip step 1 branch
-   creation; still sync/read from upstream as needed for context only if already clean).
-3. Run the rest of the applicable path (honor `--skip-device`) including Write/Edit,
-   playbooks (if not skipped), and tox.
-4. **Stop before step 12.** Do not commit, push, or `gh pr create`.
-5. Deliver preview: paths touched, `git status`, `git diff` summary, suggested branch
-   name for a later full run, and the exact step-12 commands that **would** run.
-6. Ask whether to **keep** local edits, **discard** them (`git restore` / checkout),
-   or **continue without `--dry-run`** to branch / commit / draft PR.
+Write local files (honor `--skip-device`); skip step 1 branch creation and step 12. Announce at start and end that local files were modified. Deliver: `git status`/`git diff`, suggested branch name, would-run step-12 commands. Ask: keep / discard / continue without `--dry-run`.
 
 ## Resolution pipeline
 
@@ -129,23 +107,6 @@ skip device repro; prove with sanity + corrected example analysis / unit if pres
 Sanity tox validates module documentation; unit/integration case updates only if the
 stale example also appears in tests.
 
-## Step summaries
-
-| Step | Action |
-|------|--------|
-| 1 | Sync `main` from **upstream**; branch locally. [Branch / remotes](reference/resolution-details.md). **`--dry-run`:** no new branch |
-| 2 | Read cited source, pattern, playbook-dir siblings (if dir provided), integration `_populate_config` / `_remove_config` if present |
-| 3 | One `repro_<module>_<slug>.yml`; edit **same file** on failure — no copies. **`--skip-device`:** N/A |
-| 4 | `ansible-playbook` in venv; confirm bug; save **before** snippet. **`--skip-device`:** record expected broken behavior from code |
-| 5 | Minimal fix in rm_templates / config / argspec — or `EXAMPLES` in `plugins/modules/` for Pattern 11 |
-| 6 | Evolve **same** repro playbook to corrective form (`block`/`always` teardown); re-run; confirm fix; save **after** snippet. **Gate before step 8**. **`--skip-device`:** gate = fix + rationale; after = unit expectations |
-| 7 | `changelogs/fragments/` |
-| 8 | Update unit case → unit + sanity tox |
-| 9 | Update integration `.yml` case after unit+sanity pass |
-| 10 | Create `sim_<module>_<slug>.yml` mirroring integration tasks (+ populate/remove); run on device. **`--skip-device`:** N/A. [Integration sim](reference/resolution-details.md) |
-| 11 | Ask if extra device revert needed. **`--skip-device`:** N/A. [Device cleanup](reference/resolution-details.md) |
-| 12 | Push **origin** (fork); open **draft** PR against **upstream**. **`--dry-run`:** stop; show would-run commands only. [Upstream PR](reference/upstream-pr.md) |
-
 ## Critical rules
 
 - One issue only; sync fresh `main` from **upstream** before branching (when not `--dry-run`)
@@ -162,18 +123,18 @@ stale example also appears in tests.
 
 ## Deliverables
 
+Items marked **[device]** are N/A under `--skip-device`. Item 8 applies only under `--dry-run`.
+
 1. Issue, branch (or “current branch — dry-run”), collection path
-2. Corrective repro playbook + before/after summary — or N/A + unit evidence if `--skip-device`
-3. Integration sim playbook path + run summary (step 10) — or N/A if `--skip-device`
+2. **[device]** Corrective repro playbook + before/after summary; else unit evidence
+3. **[device]** Integration sim playbook path + run summary (step 10)
 4. Files changed (fix, changelog, unit + integration cases)
 5. Unit + sanity tox results
 6. Integration cases updated (not run via tox locally)
-7. Device cleanup prompt if corrective/sim did not fully restore state — or N/A if `--skip-device`
-8. Upstream **draft** PR prompt with snippets — or under `--dry-run`: local preview banner, `git status`/`git diff`, discard/keep/continue options, and would-run step-12 commands
+7. **[device]** Device cleanup prompt if corrective/sim did not fully restore state
+8. `--dry-run` only: local preview banner, `git status`/`git diff`, discard/keep/continue, would-run step-12 commands
 
-**Default / `--skip-device`:** Do not commit, push, or open a PR unless the user requests it in step 12. Use **`--draft`** unless the user explicitly asks for a ready-for-review PR.
-
-**`--dry-run`:** Do not commit, push, or open a PR. Local changes remain for the user to review.
+Do not commit, push, or open a PR unless user requests it in step 12. Use `--draft` unless user asks for ready-for-review.
 
 ## Resources
 

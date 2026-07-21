@@ -17,16 +17,7 @@ when each topic applies; knowledge files do not prescribe pipeline steps.
 
 ## Scope balance
 
-Boolean toggle bugs (`*.set`, `no …` negate) are **one** issue family (Patterns 1–3).
-Coverage gaps, unregistered parsers, type mismatches, hardcoded compound CLI,
-idempotency failures, stale template paths, and outdated module EXAMPLES are equally
-common and often more severe. Do not over-index on `shutdown` / `enable` — treat them
-as examples, not the scan target.
-
-Pattern 11 (stale EXAMPLES) is a **documentation** gap — it does not imply a parser
-bug. Use `network-issues-resolver` to reproduce the faulty example, update `EXAMPLES`,
-and verify the corrected example. Without a lab, use resolver `--skip-device` (unit +
-sanity); see `network-issues-resolver/reference/device-alternatives.md`.
+Patterns 1–3 (boolean toggle / negate) are one family. Do not over-index on `shutdown`/`enable`. Coverage gaps, type mismatches, compound CLI, idempotency, stale parsers, and stale EXAMPLES (Pattern 11) are equally common. Pattern 11 is a documentation gap — details in [patterns.md](patterns.md).
 
 ## Discovery vs validation posture
 

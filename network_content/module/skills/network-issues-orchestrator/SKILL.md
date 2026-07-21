@@ -9,12 +9,9 @@ description: >-
   bugs with confirmed results.
 triggers:
   - network issues audit
-  - validate network parser issues
   - confirmed gap report
-  - full parser gap pipeline
-  - end-to-end network audit
   - scan and validate parser gaps
-  - audit resource modules with confirmed results
+  - audit resource modules
 user-invocable: true
 allowed-tools:
   - Bash
@@ -27,41 +24,10 @@ argument-hint: "[--repo cisco.iosxr] [--module iosxr_bgp_global]"
 
 # Skill: network-issues-orchestrator
 
-## Purpose
-
-Run the full **scan → validate** pipeline for parser and rm_template issues in
-Ansible network collection resource modules.
-
-1. **Scanner** (`network-issues-scanner`) — cast a wide net; emit candidate hits
-2. **Validator** (`network-issues-validator`) — verify each hit; drop false positives
-
-Deliverable: `network-issues-report.md` (validated gaps only).
-
-Implementing fixes is out of scope unless the user explicitly asks.
-
-## When to Invoke
-
-TRIGGER when:
-
-- User asks to scan parser gaps, audit resource modules, or find template bugs
-- User wants **confirmed** gap results (not raw scanner candidates)
-- User wants proactive QA across network collections before a release
-
-DO NOT TRIGGER when:
-
-- User only wants raw candidate hits without validation → use `network-issues-scanner`
-- User already has scanner output and only needs validation → use `network-issues-validator`
-- User wants to triage GitHub issues → use `network-collection-triage`
-- User wants to review a specific PR diff → use `pr-review`
-
 ## Prerequisites
 
-- `gh` CLI authenticated (for cloning collection repos)
+- `gh` CLI authenticated
 - Local clone of target collection(s), or network access via `gh api`
-- Child skills and shared knowledge:
-  - [network-issues-scanner](../network-issues-scanner/SKILL.md)
-  - [network-issues-validator](../network-issues-validator/SKILL.md)
-  - [network-issues-knowledge](../network-issues-knowledge/README.md)
 
 ---
 
@@ -116,19 +82,12 @@ Execute all 5 validation steps. Process every hit — do not skip `candidate` ro
 
 ### Phase 3 — Deliver final report
 
-Present the user with:
+- Executive summary: modules scanned, hits, confirmed gaps, drop rate
+- Confirmed gaps table from `network-issues-report.md`
+- Notable drops (high-confidence only; brief reason)
+- Artifact paths (all four output files)
 
-1. **Executive summary** — modules scanned, scanner hits, confirmed gaps, drop rate (dropped ÷ scanner hits)
-2. **Confirmed gaps table** — from `network-issues-report.md`
-3. **Notable drops** — only if high-confidence scanner hits were dropped (explain why)
-4. **Artifact paths** — list all four output files
-
-To fix a single confirmed gap, hand off to `network-issues-resolver` with the report
-and user-selected issue, playbook directory (unless `--skip-device`), collection path,
-and venv. Optional flags: `--skip-device`, `--dry-run`.
-
-Do not present raw scanner hits as final results unless the user explicitly asks
-for intermediate output.
+To fix one gap: hand off to `network-issues-resolver`. Do not present raw scanner hits unless explicitly asked.
 
 ---
 
@@ -145,23 +104,6 @@ for intermediate output.
 
 ## Critical rules
 
-- **Always run scanner before validator** in a single orchestrator invocation.
-- **Never skip validation** — scanner output alone is not the deliverable.
-- **Preserve scope** — if the user targeted one repo/module, both phases use the same scope.
-- **Reuse clones** — validator should use the same collection paths the scanner used.
-- **Artifact naming** — when running targeted scans (e.g. `--repo cisco.iosxr`), suffix artifacts
-  with the scope to prevent overwriting previous full-scan results:
-  `network-issues-scanner-hits.cisco.iosxr.md`, `network-issues-report.cisco.iosxr.md`.
-  Full-scope scans use the default names.
-
----
-
-## Resources
-
-| Skill / file | Role |
-|---|---|
-| [network-issues-scanner](../network-issues-scanner/SKILL.md) | Phase 1 — candidate discovery |
-| [network-issues-validator](../network-issues-validator/SKILL.md) | Phase 2 — verification and filtering |
-| [network-issues-knowledge](../network-issues-knowledge/README.md) | Shared patterns, crosswalk, verification |
-| [network-issues-resolver](../network-issues-resolver/SKILL.md) | Fix one confirmed gap (after validation) |
-| [network-issues-scanner/config/repos.yaml](../network-issues-scanner/config/repos.yaml) | Collection scope and paths |
+- **Preserve scope** — targeted `--repo`/`--module` applies to both phases.
+- **Reuse clones** — validator uses the same collection paths the scanner used.
+- **Artifact naming** — targeted scans: suffix artifacts with scope (e.g. `network-issues-scanner-hits.cisco.iosxr.md`). Full-scope: default names.

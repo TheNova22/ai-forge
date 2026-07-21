@@ -16,8 +16,6 @@ This is **candidate output** for `network-issues-validator` — not the final re
 | Repo | Module | Parameter | File:Line | Pattern | Issue | Confidence | Notes |
 |------|--------|-----------|-----------|---------|-------|------------|-------|
 | cisco.iosxr | iosxr_bgp_global | max_metric.router_lsa.on_startup.wait_for_bgp | plugins/.../argspec/bgp_global.py:412 | 4 | Argspec documents option but no parser comparison path covers it | likely | No compval in module; check config registration |
-| cisco.ios | ios_interfaces | interfaces[].enable.set | plugins/.../rm_templates/interfaces.py:88 | 1 | Parser compares at `enable` not `enable.set` | confirmed | Static setval adjacent |
-| cisco.ios | ios_bgp | config.neighbors[].bfd | plugins/modules/ios_bgp.py:842 | 11 | EXAMPLES shows flat `bfd: true` but argspec defines `bfd` dict suboptions | likely | Integration tests use nested structure |
 ```
 
 ## Column rules
@@ -37,23 +35,4 @@ Sort by confidence (`confirmed` first), then severity (high first), then repo, t
 
 ## JSON handoff shape
 
-```json
-{
-  "scan_date": "YYYY-MM-DD",
-  "scope": ["cisco.ios", "cisco.nxos", "cisco.iosxr", "arista.eos"],
-  "modules_scanned": 0,
-  "hits": [
-    {
-      "repo": "cisco.iosxr",
-      "module": "iosxr_bgp_global",
-      "parameter": "max_metric.router_lsa.on_startup.wait_for_bgp",
-      "file": "plugins/.../argspec/bgp_global.py",
-      "line": 412,
-      "pattern": "4",
-      "issue": "...",
-      "confidence": "likely",
-      "notes": "..."
-    }
-  ]
-}
-```
+Wrapper keys: `scan_date`, `scope` (array), `modules_scanned`. Each hit in `hits[]` mirrors the markdown table columns: `repo`, `module`, `parameter`, `file`, `line`, `pattern`, `issue`, `confidence`, `notes`.

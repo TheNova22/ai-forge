@@ -9,34 +9,7 @@ Do **not** commit, push, or open a PR unless the user explicitly says yes. **Alw
 **`--dry-run`:** do **not** run this workflow. Local files may already be modified for preview.
 Show would-run commands only; ask keep / discard / continue without `--dry-run`.
 
----
-
-## Fork remotes (read first)
-
-Collection work uses a **fork** of `ansible-collections/<repo>`. Remotes:
-
-| Remote | Points to | Used for |
-|--------|-----------|----------|
-| **`upstream`** | `ansible-collections/<repo>` | Sync `main`; PR **base** target |
-| **`origin`** | Your fork (`<github-user>/<repo>`) | Push feature branch; PR **head** source |
-
-**Branch lives on `origin` (fork). PR is opened against `upstream` (ansible-collections).**
-
-Verify before step 1 or step 12:
-
-```bash
-cd <collection-path>
-git remote -v
-# origin    git@github.com:<you>/cisco.nxos.git (fetch)
-# upstream  git@github.com:ansible-collections/cisco.nxos.git (fetch)
-```
-
-If `upstream` is missing:
-
-```bash
-git remote add upstream https://github.com/ansible-collections/<repo>.git
-git fetch upstream
-```
+Fork remotes setup: see [resolution-details.md](resolution-details.md) Branch section.
 
 ---
 
@@ -53,29 +26,10 @@ git fetch upstream
 
 ```bash
 cd <collection-path>
-
-# 0. Confirm remotes (origin = fork, upstream = ansible-collections)
-git remote -v
-
-# 1. Read the repo template — structure varies slightly; always use the collection's file
 cat .github/PULL_REQUEST_TEMPLATE.md
-
-# 2. Stage only resolver-related files (fix, changelog, tests — not repro playbooks)
-git add <paths>
-git status
-
-# 3. Commit
-git commit -m "$(cat <<'EOF'
-Fix <module> <short description>
-
-EOF
-)"
-
-# 4. Push branch to YOUR FORK (origin) — not upstream
+git add <fix-files> <changelog> <tests>
+git commit -m "Fix <module> <short description>"
 git push -u origin HEAD
-
-# 5. Open DRAFT PR: base = upstream/main, head = your fork + branch
-#    Option A — from fork clone (gh resolves cross-repo PR):
 gh pr create \
   --draft \
   --repo ansible-collections/<repo> \
@@ -86,20 +40,9 @@ gh pr create \
 <filled template>
 EOF
 )"
-
-#    Option B — if already on fork remote and gh defaults work:
-# gh pr create --draft --base main --head <branch-name> --title "..." --body "..."
 ```
 
-| Step | Remote / target |
-|------|-----------------|
-| `git push -u origin HEAD` | Branch on **fork** |
-| `gh pr create --draft --repo ansible-collections/<repo>` | **Draft** PR into **upstream** |
-| `--head <github-user>:<branch>` | Head ref on **fork** |
-
-Do **not** push directly to `upstream` unless the user explicitly has write access and asks for it.
-
-Return the draft PR URL to the user. Confirm the PR shows as **Draft** on GitHub.
+Push to **origin** (fork); PR base is **upstream**. Do not push to upstream directly. Return draft PR URL.
 
 ---
 
@@ -126,133 +69,28 @@ Do not strip template sections — fill or mark N/A. Match tone of merged PRs in
 
 ## Before / after snippets (required)
 
-Snippets are the fastest way for reviewers to see the bug. Include **both** in the PR body
-under **Command Output / Logs** and/or **Test Results**.
-
-### What to capture
+Include **both** in PR body under **Command Output / Logs**. Verbatim — trim noise, not failing lines.
 
 | When | Capture |
 |------|---------|
-| **Before fix** (step 4) | `ansible-playbook` task result: `changed`, `commands`, errors, malformed CLI |
-| **After fix** (step 6) | Corrective repro run: corrected `commands` / `changed` + assert pass |
-
-Use **verbatim** output — trim only unrelated noise, not the failing lines.
-
-### Format in PR body
-
-```markdown
-### Before (broken)
-
-\`\`\`
-TASK [Expose the bug] ...
-ok: [lab-nxos]
-
-TASK [Debug] ...
-ok: [lab-nxos] => {
-    "result": {
-        "changed": false,
-        "commands": []
-    }
-}
-\`\`\`
-
-### After (fixed)
-
-\`\`\`
-TASK [Expose the bug] ...
-changed: [lab-nxos]
-
-TASK [Debug] ...
-ok: [lab-nxos] => {
-    "result": {
-        "changed": true,
-        "commands": [
-            "interface Vlan218",
-            "hsrp 218",
-            "no preempt delay reload 20",
-            "preempt delay sync 55"
-        ]
-    }
-}
-\`\`\`
-```
-
-Also paste relevant **unit test** pass output if it adds context:
-
-```markdown
-### Unit tests
-
-\`\`\`
-tox -e <unit-env> -- tests/unit/modules/network/<platform>/test_<module>.py
-  ...
-  passed
-\`\`\`
-```
-
-If reproduction was playbook-only, snippets are still **required** — do not open a PR without them unless the user accepts an exception.
+| **Before** (step 4) | `changed`, `commands`, errors from broken task |
+| **After** (step 6) | Corrected `commands` / `changed` + assert pass |
 
 ### Unit-only evidence (`--skip-device`)
 
-When device steps were skipped, use unit (and sanity) output instead of playbook logs.
-
-In **Testing Instructions**, state clearly:
-
-> Validated via unit + sanity only; no device run.
+State in Testing Instructions: "Validated via unit + sanity only; no device run."
 
 | When | Capture |
 |------|---------|
-| **Before (broken)** | Pre-fix expected wrong/missing `commands`, or the failing unit assertion / code analysis of broken setval |
-| **After (fixed)** | Updated expected `commands` in the unit case + tox unit pass excerpt |
-
-Example:
-
-```markdown
-### Before (broken)
-
-Expected (pre-fix): `set: false` emitted no negate; unit would assert empty or wrong commands for preempt delay removal.
-
-### After (fixed)
-
-\`\`\`
-tox -e <unit-env> -- tests/unit/modules/network/<platform>/test_<module>.py
-  test_<module>_preempt_replaced ... ok
-\`\`\`
-
-Corrected expected commands in the unit case:
-
-\`\`\`
-["interface Vlan218", "hsrp 218", "no preempt delay reload 20", "preempt delay sync 55"]
-\`\`\`
-```
+| **Before** | Pre-fix broken expected `commands` or failing unit assertion |
+| **After** | Updated expected `commands` + tox unit pass line |
 
 ---
 
 ## PR title
 
-Concise, module-focused:
+Format: `<module> | <short fix description>`. Match style of recent merged PRs.
 
-```
-<module> | <short fix description>
-```
+Examples: `nxos_hsrp_interfaces | Fix preempt replaced state setval` · `iosxr_bgp_global | Add parser coverage for max_metric suboptions`
 
-Examples:
-
-- `nxos_hsrp_interfaces | Fix preempt replaced state and setval for partial sub-keys`
-- `iosxr_bgp_global | Add parser coverage for max_metric router-lsa suboptions`
-
-Match title style of recent merged PRs in the same collection.
-
----
-
-## Related issue
-
-If the user provides a GitHub issue number, set `Fixes #NNN` in **Related Issue**.
-Otherwise leave placeholders or omit.
-
----
-
-## What not to include in the PR
-
-- Reproduction playbooks from the user's playbook directory (stay local)
-- Validator/scanner report artifacts
-- Unrelated collection changes
+If user provides a GitHub issue: add `Fixes #NNN` to Related Issue. Do not include repro playbooks, scanner/validator report artifacts, or unrelated changes.

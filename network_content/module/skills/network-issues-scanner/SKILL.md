@@ -10,12 +10,9 @@ description: >-
   validation phase. Prefer network-issues-orchestrator for end-to-end scan plus
   validation.
 triggers:
-  - scan parser gaps raw
+  - scan parser gaps
   - raw scanner hits
-  - parser gap candidates
   - network issues scan
-  - scan without validation
-  - collect parser gap candidates
   - scanner phase only
 user-invocable: true
 allowed-tools:
@@ -29,33 +26,12 @@ argument-hint: "[--repo cisco.iosxr] [--module iosxr_bgp_global]"
 
 # Skill: network-issues-scanner
 
-## Purpose
-
-Cast a **wide net** across network collection resource modules and collect
-**candidate issue hits**. This skill detects and lists candidates only — deep
-verification and false-positive elimination is handled by `network-issues-validator`.
-
-## When to Invoke
-
-TRIGGER when:
-
-- User asks to scan for parser gaps, template bugs, or argspec/template mismatches
-- User asks to audit resource module idempotency or boolean toggle handling
-- User wants proactive QA across network collections before a release
-- `network-issues-orchestrator` delegates the scan phase
-
-DO NOT TRIGGER when:
-
-- User wants validated, final gap reports only → use `network-issues-orchestrator`
-- User wants to triage GitHub issues → use `network-collection-triage`
-- User wants to review a specific PR diff → use `pr-review`
-
 ## Prerequisites
 
-- `gh` CLI authenticated (for cloning or fetching repo content)
-- Local clone of target collection(s), **or** network access to read files via `gh api`
+- `gh` CLI authenticated
+- Local clone of target collection(s), or network access via `gh api`
 
-## Common knowledge
+## Knowledge files
 
 Read [network-issues-knowledge/README.md](../network-issues-knowledge/README.md) as needed
 during the scan pipeline:
@@ -148,14 +124,3 @@ Emit per [scanner-report-template.md](reference/scanner-report-template.md):
 
 When invoked by `network-issues-orchestrator`, pass both files to the validator.
 
----
-
-## Resources
-
-| File | When to read |
-|---|---|
-| [../network-issues-knowledge/](../network-issues-knowledge/README.md) | Patterns, crosswalk, confidence |
-| [reference/workflow-details.md](reference/workflow-details.md) | Module layout, grep commands — Steps 2, 4, 6 |
-| [reference/scanner-report-template.md](reference/scanner-report-template.md) | Step 7 — output format |
-| [config/repos.yaml](config/repos.yaml) | Step 1 — repos, platforms, paths |
-| [scripts/scan_mechanical_signals.py](scripts/scan_mechanical_signals.py) | Step 3 — mechanical pre-scan |

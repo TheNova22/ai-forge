@@ -32,30 +32,7 @@ Record module name, argspec path, module file path (`plugins/modules/`), facts p
 
 ---
 
-## EXAMPLES vs argspec crosswalk (Pattern 11)
-
-For each resource module during Step 4:
-
-1. Read `EXAMPLES` from `plugins/modules/<prefix><module>.py`
-2. Extract argspec leaf paths from `argspec/{module}/{module}.py`
-3. Parse YAML task fragments from EXAMPLES — map keys under `config` and top-level module options
-4. Flag parameters in examples that are absent from argspec, renamed, or visibly wrong type
-5. Cross-check against `tests/integration/targets/<module>/tests/cli/*.yml` for working format
-
-```bash
-# Locate EXAMPLES blocks
-rg -n '^EXAMPLES\s*=' plugins/modules/
-
-# Find example references to a removed/renamed parameter (substitute <old_name>)
-rg -n '<old_name>' plugins/modules/<prefix><module>.py tests/integration/targets/<module>/
-
-# Compare state values used in examples vs argspec choices
-rg -n "state:\s*(merged|replaced|overridden|deleted|gathered|parsed|rendered)" plugins/modules/
-rg -n "'state':" plugins/module_utils/network/*/argspec/
-```
-
-Report Pattern 11 hits with `File:Line` pointing at the module file and the offending
-example parameter path.
+Pattern 11 (stale EXAMPLES): handled by `scan_mechanical_signals.py` (`scan_examples_vs_argspec`). See [patterns.md](../network-issues-knowledge/patterns.md) Pattern 11 for confirm/drop bars.
 
 ---
 
@@ -88,12 +65,6 @@ rg -o "['\"][a-z_]+['\"]" plugins/module_utils/network/*/config/*/*.py | sort -u
 
 ---
 
-## Step 4 — Crosswalk
-
-Follow [crosswalk.md](../network-issues-knowledge/crosswalk.md) for the full procedure.
-
----
-
 ## Step 6 — Test coverage grep commands
 
 ```bash
@@ -113,21 +84,3 @@ rg -n '<argspec_leaf_or_parent>' tests/integration/targets/<module>/
 
 Checklists: [checklists.md](../network-issues-knowledge/checklists.md).
 
----
-
-## Example invocations
-
-**User:** "Scan parser gaps across network collections"
-→ Full scan mode. Clone/read all four repos, run pipeline, deliver hits + JSON.
-
-**User:** "Check iosxr_bgp_global for parser gaps"
-→ Targeted mode. Deep-dive single module, exhaustive crosswalk.
-
-**User:** "Find boolean toggle issues like PR 623"
-→ Patterns 1–3 deep dive per [patterns.md](../network-issues-knowledge/patterns.md).
-
-**User:** "Check for missing parsers / coverage gaps"
-→ Emphasize Step 4 crosswalk; report uncovered argspec leaves.
-
-**User:** "Check if module examples match argspec"
-→ Emphasize Pattern 11 EXAMPLES crosswalk in Step 4; compare against integration tests.

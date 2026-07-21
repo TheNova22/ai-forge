@@ -23,44 +23,10 @@ argument-hint: "[scanner-hits.md] [--repo cisco.iosxr]"
 
 # Skill: network-issues-validator
 
-## Purpose
-
-Take **scanner hits** and produce a **validated gap report** by verifying each
-candidate against live source code, config registration, sibling parsers, and tests.
-
-## When to Invoke
-
-TRIGGER when:
-
-- User has scanner output (`network-issues-scanner-hits.md` or `.json`) to verify
-- `network-issues-orchestrator` delegates the validation phase
-- User asks to confirm, filter, or validate parser gap findings
-
-DO NOT TRIGGER when:
-
-- No scanner hits exist yet → run `network-issues-scanner` or orchestrator first
-- User wants a fresh scan → use scanner or orchestrator
-
 ## Prerequisites
 
-- Scanner output in working directory or user-provided path
+- Scanner output (`network-issues-scanner-hits.md` / `.json`) in working directory or user-provided path
 - Local clone of relevant collection(s) at paths used during the scan
-
-## Common knowledge
-
-Read [network-issues-knowledge/README.md](../network-issues-knowledge/README.md) as needed
-during validation:
-
-| File | Use for |
-|------|---------|
-| [verification.md](../network-issues-knowledge/verification.md) | Per-hit procedure, verdicts, drop codes |
-| [patterns.md](../network-issues-knowledge/patterns.md) | Pattern confirm/drop bars (incl. Patterns 10–11) |
-| [parser-anatomy.md](../network-issues-knowledge/parser-anatomy.md) | Comparison paths, config registration |
-| [crosswalk.md](../network-issues-knowledge/crosswalk.md) | Crosswalk procedure |
-| [checklists.md](../network-issues-knowledge/checklists.md) | Test and compound-CLI re-check |
-
-Also: [../network-issues-scanner/config/repos.yaml](../network-issues-scanner/config/repos.yaml),
-[reference/validated-report-template.md](reference/validated-report-template.md).
 
 ## Input
 
@@ -82,8 +48,6 @@ Validation Progress:
 - [ ] Step 4 — Re-check test coverage for confirmed gaps
 - [ ] Step 5 — Produce validated report
 ```
-
-Read [verification.md](../network-issues-knowledge/verification.md) before per-hit review.
 
 ### Step 1 — Load scanner hits
 
@@ -115,17 +79,16 @@ Emit per [validated-report-template.md](reference/validated-report-template.md):
 - `network-issues-report.md` (with Validation Summary and Dropped hits sections)
 - `network-issues-report.json`
 
-Handoff: [network-issues-resolver](../network-issues-resolver/SKILL.md) consumes this
-output to reproduce and fix **one** confirmed gap at a time.
+Handoff: [network-issues-resolver](../network-issues-resolver/SKILL.md) fixes **one** confirmed gap at a time.
 
----
+## Knowledge files
 
-## Resources
-
-| File | When to read |
-|---|---|
-| [../network-issues-knowledge/verification.md](../network-issues-knowledge/verification.md) | Per-hit review |
-| [../network-issues-knowledge/patterns.md](../network-issues-knowledge/patterns.md) | Per-pattern bars |
-| [reference/validated-report-template.md](reference/validated-report-template.md) | Step 5 — output format |
-| [../network-issues-scanner/config/repos.yaml](../network-issues-scanner/config/repos.yaml) | Repo paths and layout |
-| [../network-issues-resolver/SKILL.md](../network-issues-resolver/SKILL.md) | Fix a single confirmed gap |
+| File | Use for |
+|------|---------|
+| [verification.md](../network-issues-knowledge/verification.md) | Per-hit procedure, verdicts, drop codes |
+| [patterns.md](../network-issues-knowledge/patterns.md) | Pattern confirm/drop bars (incl. Patterns 10–11) |
+| [parser-anatomy.md](../network-issues-knowledge/parser-anatomy.md) | Comparison paths, config registration |
+| [crosswalk.md](../network-issues-knowledge/crosswalk.md) | Crosswalk procedure |
+| [checklists.md](../network-issues-knowledge/checklists.md) | Test and compound-CLI re-check |
+| [validated-report-template.md](reference/validated-report-template.md) | Step 5 — output format |
+| [repos.yaml](../network-issues-scanner/config/repos.yaml) | Repo paths and layout |
