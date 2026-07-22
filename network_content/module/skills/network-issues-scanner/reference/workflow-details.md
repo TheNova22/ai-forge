@@ -6,6 +6,8 @@ lives in [network-issues-knowledge/](../network-issues-knowledge/README.md).
 
 Read this file during Steps 2, 4, and 6.
 
+Pattern 11 deep check (Step 3): `validate_examples.py` — structural per-task checker; see [scripts/validate_examples.py](../scripts/validate_examples.py).
+
 ---
 
 ## Module layout

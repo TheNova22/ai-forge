@@ -47,7 +47,7 @@ Device alternatives and skip rules:
 
 ## Entry gates
 
-Do not proceed until the user provides:
+Do not proceed until the user provides. Ensure you demand the following, and not assume any of them are present:
 
 | Gate | Input | Default | `--skip-device` | `--dry-run` |
 |------|-------|---------|----------------|-------------|

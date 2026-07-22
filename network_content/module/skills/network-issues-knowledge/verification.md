@@ -53,10 +53,7 @@ parser paths before dropping.
 For Pattern 10, look for `state: replaced` / `overridden` tests with partial
 sub-key sets in `want` while `have` retains extra sub-keys.
 
-For Pattern 11, read `EXAMPLES` from `plugins/modules/<prefix><module>.py` and
-compare each task's parameter paths against the argspec tree. Integration tests
-are the preferred reference for valid structure — absence of a test does not drop
-a documentation gap.
+For Pattern 11, scanner Step 3 already ran `validate_examples.py` which performs structural checks (type mismatches, removed parameters, invalid state, missing required) and attaches an integration testcase reference per finding. Validator task: confirm or drop each finding by reading the cited `file:line` in the module's EXAMPLES and the `notes` integration ref. Manual EXAMPLES walk is only needed for modules `validate_examples.py` skipped (YAML parse failure). Integration tests are the preferred reference for valid structure — absence of a test does not drop a documentation gap.
 
 ### Apply pattern confirm/drop bars
 

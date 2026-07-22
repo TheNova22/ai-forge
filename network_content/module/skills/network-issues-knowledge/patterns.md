@@ -367,13 +367,16 @@ inside `DOCUMENTATION`; check both when present.
 
 **Detection signals:**
 
-- Walk argspec leaf paths from `argspec/{module}/{module}.py`
-- Read `EXAMPLES` from `plugins/modules/<prefix><module>.py`
-- Parse YAML task fragments from EXAMPLES (`module:` keys and nested `config` vars)
-- Flag example parameters not present in the current argspec (removed or renamed options)
-- Flag visible type mismatches (e.g. bare scalar where argspec expects dict, wrong `state`)
-- Flag primary examples missing required argspec options
-- Cross-check format against `tests/integration/targets/<module>/tests/cli/*.yml`
+Run `scripts/validate_examples.py /path/to/collection --json` (Step 3). It performs all checks below mechanically and emits per-task, per-parameter findings with integration testcase references:
+
+- Parameters in EXAMPLES absent from argspec at that nesting depth (removed or renamed)
+- Type mismatches: scalar where argspec expects `dict`, dict where argspec expects scalar, scalar where `list` expected
+- Invalid `state` values not present in argspec `choices`
+- Required parameters (`required: true` in argspec) absent from the task
+
+For modules where `validate_examples.py` skips (YAML parse failure), fall back to manual walk: parse EXAMPLES task vars and compare each parameter path and type against `argspec/{module}/{module}.py`.
+
+Cross-check format against `tests/integration/targets/<module>/tests/cli/*.yml` — integration tests are the preferred reference for valid structure.
 
 **Validation confirm:** EXAMPLES reference removed/renamed argspec paths, wrong types,
 invalid `state` values, or structures that would fail `ansible.module_utils` argument

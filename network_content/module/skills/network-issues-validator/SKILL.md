@@ -61,9 +61,7 @@ Locate collection clones used during the scan. Reuse scanner paths when possible
 
 Follow [verification.md](../network-issues-knowledge/verification.md) for every hit.
 For Patterns 5, 6, and 10, consult Cisco documentation before confirming or dropping.
-For Pattern 11, compare `EXAMPLES` in `plugins/modules/<prefix><module>.py` against
-argspec and integration tests — documentation-only gaps; resolver reproduces the faulty
-example and updates `EXAMPLES`.
+For Pattern 11, scanner Step 3 ran `validate_examples.py` which pre-checks type mismatches, removed parameters, invalid state, and missing required fields. Each finding includes a `notes` integration testcase reference. Confirm by reading the cited `file:line` in EXAMPLES and the argspec; drop if the finding is `examples-aligned`. Documentation-only gaps: resolver reproduces the faulty example and updates `EXAMPLES`.
 Apply pattern bars from [patterns.md](../network-issues-knowledge/patterns.md).
 
 Process `confirmed` → `likely` → `candidate`. Do not skip `candidate` hits.

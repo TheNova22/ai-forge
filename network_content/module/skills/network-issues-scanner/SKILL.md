@@ -92,21 +92,21 @@ See workflow-details.md for module layout.
 
 ```bash
 python scripts/scan_mechanical_signals.py /path/to/cisco.iosxr --json
+python scripts/validate_examples.py /path/to/cisco.iosxr --json
 ```
 
-Produces candidate signals for Steps 4–5. Run supplemental grep commands from workflow-details.md.
+Produces candidate signals for Steps 4–5. `validate_examples.py` performs structural Pattern 11 checks (type mismatches, removed parameters, invalid state values) with per-task findings and integration testcase references. Run supplemental grep commands from workflow-details.md.
 
 ### Step 4 — Argspec vs template crosswalk
 
 Follow [crosswalk.md](../network-issues-knowledge/crosswalk.md). Primary discovery step.
-Include Pattern 11: compare `EXAMPLES` in `plugins/modules/<prefix><module>.py` against
-the argspec tree and integration test task vars.
+Pattern 11 structural checks (type mismatches, removed parameters, invalid state, missing required) are handled by `validate_examples.py` in Step 3 — do not duplicate that work here.
 
 ### Step 5 — Pattern classification (candidates)
 
 Classify candidates per [patterns.md](../network-issues-knowledge/patterns.md),
-including Pattern 10 (hardcoded compound CLI — verify against Cisco docs when flagged)
-and Pattern 11 (stale EXAMPLES vs argspec).
+including Pattern 10 (hardcoded compound CLI — verify against Cisco docs when flagged).
+Pattern 11 findings come pre-classified from Step 3 (`validate_examples.py`) — merge them into the hits report.
 Assign confidence per [confidence-and-severity.md](../network-issues-knowledge/confidence-and-severity.md).
 
 **Do not drop hits.** Note mitigating context in `Notes` for the validator.

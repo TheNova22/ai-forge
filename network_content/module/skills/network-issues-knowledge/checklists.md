@@ -18,16 +18,15 @@ For each argspec leaf path (scalar, struct field, or `*.set` bool):
 
 ## Module EXAMPLES vs argspec checklist (Pattern 11)
 
-For each resource module:
+`scripts/validate_examples.py` (Step 3) automates items marked **[auto]** below.
+Validator confirms or drops its findings; manual walk only for modules it skipped.
 
-- [ ] Read `EXAMPLES` from `plugins/modules/<prefix><module>.py` (and embedded examples in `DOCUMENTATION` if present)
-- [ ] Parse YAML task vars from each example block
-- [ ] Every parameter path in examples exists in the current argspec tree
-- [ ] Parameter types and nesting in examples match argspec (`dict` vs scalar, list `elements`, `choices`)
-- [ ] `state` values in examples are valid per argspec `choices`
-- [ ] Removed or renamed argspec options are not still shown in examples
-- [ ] Primary configure examples include required argspec options
-- [ ] Example formatting aligns with `tests/integration/targets/<module>/tests/cli/*.yml`
+- **[auto]** Every parameter path in examples exists in the current argspec at that nesting depth
+- **[auto]** Parameter types match argspec (`dict` vs scalar, `list` vs scalar)
+- **[auto]** `state` values are valid per argspec `choices`
+- **[auto]** Required parameters (`required: true`) present in configure examples
+- [ ] Embedded examples in `DOCUMENTATION` block reviewed (not checked by script)
+- [ ] Example formatting aligns with `tests/integration/targets/<module>/tests/cli/*.yml` (use `notes` integration ref from findings)
 
 ---
 
