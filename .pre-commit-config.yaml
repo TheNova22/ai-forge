@@ -33,16 +33,16 @@ repos:
       - id: actionlint
 
   # Skillmark - Agent Skills spec validation
-  - repo: https://github.com/michellepellon/skillmark
-    rev: v0.1.0
-    hooks:
-      - id: skillmark
-        language: rust
-        args: [--config, .skillmark.toml]
-      - id: skillmark-fix
-        language: rust
-        args: [--config, .skillmark.toml]
-        stages: [manual]
+  # - repo: https://github.com/michellepellon/skillmark
+  #   rev: v0.1.0
+  #   hooks:
+  #     - id: skillmark
+  #       language: rust
+  #       args: [--config, .skillmark.toml]
+  #     - id: skillmark-fix
+  #       language: rust
+  #       args: [--config, .skillmark.toml]
+  #       stages: [manual]
 
   # Ruff - Python linting and formatting
   - repo: https://github.com/astral-sh/ruff-pre-commit

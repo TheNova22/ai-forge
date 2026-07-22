@@ -154,7 +154,10 @@ Install collection editable if siblings do (`ansible-galaxy collection install -
 | 10 | `state: replaced`; partial sub-keys in want; extra sub-keys on device |
 | 11 | Copy task vars verbatim from `EXAMPLES`; expect argument validation failure or wrong module behavior |
 
-**Pattern 11 (stale EXAMPLES):** use `EXAMPLES` task vars as repro input (step 3); fix the `EXAMPLES` block in `plugins/modules/` (step 5); sanity tox validates docs. See [patterns.md](../../network-issues-knowledge/patterns.md) for confirm/drop bars.
+**Pattern 11 (stale EXAMPLES):** use `EXAMPLES` task vars as repro input (step 3);
+fix the `EXAMPLES` block in `plugins/modules/` (step 5); sanity tox validates
+docs. See [patterns.md](../../network-issues-knowledge/patterns.md) for
+confirm/drop bars.
 
 ---
 

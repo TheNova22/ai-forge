@@ -76,7 +76,7 @@ Include **both** in PR body under **Command Output / Logs**. Verbatim — trim n
 | **Before** (step 4) | `changed`, `commands`, errors from broken task |
 | **After** (step 6) | Corrected `commands` / `changed` + assert pass |
 
-### Unit-only evidence (`--skip-device`)
+### Unit-only evidence (skip-device)
 
 State in Testing Instructions: "Validated via unit + sanity only; no device run."
 

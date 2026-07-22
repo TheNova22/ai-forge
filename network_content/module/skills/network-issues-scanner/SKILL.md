@@ -95,7 +95,10 @@ python scripts/scan_mechanical_signals.py /path/to/cisco.iosxr --json
 python scripts/validate_examples.py /path/to/cisco.iosxr --json
 ```
 
-Produces candidate signals for Steps 4–5. `validate_examples.py` performs structural Pattern 11 checks (type mismatches, removed parameters, invalid state values) with per-task findings and integration testcase references. Run supplemental grep commands from workflow-details.md.
+Produces candidate signals for Steps 4–5. `validate_examples.py` performs
+structural Pattern 11 checks (type mismatches, removed parameters, invalid state
+values) with per-task findings and integration testcase references. Run
+supplemental grep commands from workflow-details.md.
 
 ### Step 4 — Argspec vs template crosswalk
 
@@ -123,4 +126,3 @@ Emit per [scanner-report-template.md](reference/scanner-report-template.md):
 - `network-issues-scanner-hits.json`
 
 When invoked by `network-issues-orchestrator`, pass both files to the validator.
-

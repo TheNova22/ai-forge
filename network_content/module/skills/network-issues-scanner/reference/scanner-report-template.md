@@ -35,4 +35,6 @@ Sort by confidence (`confirmed` first), then severity (high first), then repo, t
 
 ## JSON handoff shape
 
-Wrapper keys: `scan_date`, `scope` (array), `modules_scanned`. Each hit in `hits[]` mirrors the markdown table columns: `repo`, `module`, `parameter`, `file`, `line`, `pattern`, `issue`, `confidence`, `notes`.
+Wrapper keys: `scan_date`, `scope` (array), `modules_scanned`. Each hit in
+`hits[]` mirrors the markdown table columns: `repo`, `module`, `parameter`,
+`file`, `line`, `pattern`, `issue`, `confidence`, `notes`.

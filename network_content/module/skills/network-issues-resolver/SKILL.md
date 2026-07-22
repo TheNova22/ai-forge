@@ -76,7 +76,10 @@ See [device-alternatives.md](reference/device-alternatives.md). Mark steps 3–4
 
 ### `--dry-run` (local preview)
 
-Write local files (honor `--skip-device`); skip step 1 branch creation and step 12. Announce at start and end that local files were modified. Deliver: `git status`/`git diff`, suggested branch name, would-run step-12 commands. Ask: keep / discard / continue without `--dry-run`.
+Write local files (honor `--skip-device`); skip step 1 branch creation and
+step 12. Announce at start and end that local files were modified. Deliver:
+`git status`/`git diff`, suggested branch name, would-run step-12 commands.
+Ask: keep / discard / continue without `--dry-run`.
 
 ## Resolution pipeline
 

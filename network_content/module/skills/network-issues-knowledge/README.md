@@ -17,7 +17,10 @@ when each topic applies; knowledge files do not prescribe pipeline steps.
 
 ## Scope balance
 
-Patterns 1–3 (boolean toggle / negate) are one family. Do not over-index on `shutdown`/`enable`. Coverage gaps, type mismatches, compound CLI, idempotency, stale parsers, and stale EXAMPLES (Pattern 11) are equally common. Pattern 11 is a documentation gap — details in [patterns.md](patterns.md).
+Patterns 1–3 (boolean toggle / negate) are one family. Do not over-index on
+`shutdown`/`enable`. Coverage gaps, type mismatches, compound CLI, idempotency,
+stale parsers, and stale EXAMPLES (Pattern 11) are equally common. Pattern 11 is
+a documentation gap — details in [patterns.md](patterns.md).
 
 ## Discovery vs validation posture
 
