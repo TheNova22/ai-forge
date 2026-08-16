@@ -6,13 +6,24 @@ lives in [network-issues-knowledge/](../network-issues-knowledge/README.md).
 
 Read this file during Steps 2, 4, and 6.
 
-Pattern 11 deep check (Step 3): `validate_examples.py` — structural per-task checker; see [scripts/validate_examples.py](../scripts/validate_examples.py).
+## Pattern 11 — stale EXAMPLES (Step 3)
+
+Pattern 11 is produced **only** by [`validate_examples.py`](../scripts/validate_examples.py) — a
+structural per-task checker (type mismatches, removed parameters, invalid `state`,
+missing required). [`scan_mechanical_signals.py`](../scripts/scan_mechanical_signals.py) covers
+Patterns 1–10 only.
+
+For modules `validate_examples.py` skips (YAML parse failure), fall back to manual EXAMPLES
+walk per [patterns.md](../network-issues-knowledge/patterns.md) Pattern 11. Confirm/drop bars
+are in that pattern definition.
 
 ---
 
 ## Module layout
 
-Resource modules follow this layout (see [config/repos.yaml](../config/repos.yaml)):
+Resource modules follow this layout. Path templates are defined in
+[config/repos.yaml](../config/repos.yaml) and resolved at runtime by
+[scripts/scanner_config.py](../scripts/scanner_config.py) (used by both Step 3 scripts):
 
 ```
 plugins/module_utils/network/{platform}/argspec/{module}/
@@ -31,10 +42,6 @@ find plugins/modules/ -mindepth 1 -maxdepth 1 -type f -name "*.py"
 ```
 
 Record module name, argspec path, module file path (`plugins/modules/`), facts path, rm_template path, config path, test paths.
-
----
-
-Pattern 11 (stale EXAMPLES): handled by `scan_mechanical_signals.py` (`scan_examples_vs_argspec`). See [patterns.md](../network-issues-knowledge/patterns.md) Pattern 11 for confirm/drop bars.
 
 ---
 

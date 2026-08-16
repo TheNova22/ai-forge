@@ -46,7 +46,7 @@ in the working directory.
 - **Module** — full module name (`iosxr_bgp_global`)
 - **Parameter** — dotted argspec path
 - **File:Line** — repo-relative path with line number (primary evidence)
-- **Pattern** — gap-patterns.md pattern number
+- **Pattern** — [patterns.md](../network-issues-knowledge/patterns.md) pattern number
 - **Issue** — verified description and user-visible symptom
 - **Potential Fix** — brief direction (not a full implementation)
 

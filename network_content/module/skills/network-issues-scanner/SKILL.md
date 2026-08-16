@@ -21,7 +21,7 @@ allowed-tools:
   - Write
   - Glob
   - Grep
-argument-hint: "[--repo cisco.iosxr] [--module iosxr_bgp_global]"
+argument-hint: "[--repo cisco.iosxr | --repos cisco.ios,cisco.nxos] [--module iosxr_bgp_global] [--repos-config PATH]"
 ---
 
 # Skill: network-issues-scanner
@@ -30,6 +30,7 @@ argument-hint: "[--repo cisco.iosxr] [--module iosxr_bgp_global]"
 
 - `gh` CLI authenticated
 - Local clone of target collection(s), or network access via `gh api`
+- PyYAML (required by scanner scripts for `repos.yaml`)
 
 ## Knowledge files
 
@@ -52,9 +53,9 @@ Operational details: [config/repos.yaml](config/repos.yaml),
 
 ## Mode Detection
 
-**Full scan (default):** all four collections — run automatically, no clarifying questions.
+**Full scan (default):** all collections in `repos.yaml` — run automatically, no clarifying questions.
 
-**Targeted:** user specifies `--repo`, `--module`, or collection name — scan that scope only.
+**Targeted:** user specifies `--repo` (single collection), `--repos` (comma-separated subset), `--module`, or collection name — scan that scope only. If both `--repo` and `--repos` are given, prefer `--repo`.
 
 ---
 
@@ -65,7 +66,7 @@ Scan Progress:
 - [ ] Step 1 — Acquire collection source
 - [ ] Step 2 — Enumerate resource modules
 - [ ] Step 3 — Mechanical pre-scan
-- [ ] Step 4 — Argspec vs template crosswalk (+ EXAMPLES check)
+- [ ] Step 4 — Argspec vs template crosswalk
 - [ ] Step 5 — Pattern classification (candidates)
 - [ ] Step 6 — Test coverage gap check
 - [ ] Step 7 — Produce scanner hits report
@@ -75,7 +76,29 @@ Read [workflow-details.md](reference/workflow-details.md) before Steps 2, 4, and
 
 ### Step 1 — Acquire collection source
 
-For each repo in [config/repos.yaml](config/repos.yaml):
+Read [config/repos.yaml](config/repos.yaml) and determine which `collections[]` entries
+to clone. Scope rules (same as Step 3 script flags and `scanner_config.filter_collections()`):
+
+- No scope flags → all collections
+- `--repo cisco.iosxr` → that collection only
+- `--repos cisco.ios,cisco.nxos` → those collections only
+- If both `--repo` and `--repos` are given, prefer `--repo`
+
+Optional: run `filter_collections()` from [scripts/scanner_config.py](scripts/scanner_config.py)
+to list scoped entries (must run from the `scripts/` directory):
+
+```bash
+cd network_content/module/skills/network-issues-scanner/scripts
+python -c "
+from scanner_config import load_repos_config, filter_collections, parse_repos_arg
+cfg = load_repos_config(None)
+repos = parse_repos_arg('cisco.ios,cisco.nxos')  # or None for all; use repo= for single
+for c in filter_collections(cfg, repo=None, repos=repos):
+    print(c.repo)
+"
+```
+
+Then clone each listed repo:
 
 ```bash
 gh repo clone ansible-collections/cisco.iosxr /tmp/cisco.iosxr -- --depth=1 2>/dev/null || true
@@ -90,10 +113,16 @@ See workflow-details.md for module layout.
 
 ### Step 3 — Mechanical pre-scan
 
+Both scripts load path templates and collection metadata from `repos.yaml` via
+`scripts/scanner_config.py`. Pass matching scope flags on each per-clone invocation.
+
 ```bash
-python scripts/scan_mechanical_signals.py /path/to/cisco.iosxr --json
-python scripts/validate_examples.py /path/to/cisco.iosxr --json
+python scripts/scan_mechanical_signals.py /path/to/cisco.iosxr --repo cisco.iosxr --json
+python scripts/validate_examples.py /path/to/cisco.iosxr --repo cisco.iosxr --json
 ```
+
+When scoped via `--repos`, pass the same value to each script call. Out-of-scope clones
+are skipped (exit 0). Optional: `--repos-config PATH` to override the default config file.
 
 Produces candidate signals for Steps 4–5. `validate_examples.py` performs
 structural Pattern 11 checks (type mismatches, removed parameters, invalid state
@@ -119,6 +148,9 @@ Assign confidence per [confidence-and-severity.md](../network-issues-knowledge/c
 Follow [checklists.md](../network-issues-knowledge/checklists.md) and workflow-details.md grep commands.
 
 ### Step 7 — Produce scanner hits report
+
+Concatenate `--json` hit arrays from both Step 3 scripts (identical object shape via
+`scripts/scanner_finding.py`). Wrap with `wrap_hits_report()` for the final file.
 
 Emit per [scanner-report-template.md](reference/scanner-report-template.md):
 

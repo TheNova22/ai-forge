@@ -47,14 +47,18 @@ Also note custom methods that handle parameters outside rm_templates.
 | Comparison path exists but argspec leaf absent | Pattern 8 — stale parser |
 | Parser has `getval`/`result` but no `setval` and state requires generate | generate gap |
 | Dict-valued compound CLI compared/rendered as monolithic scalar | Pattern 10 — hardcoded compound CLI |
-| EXAMPLES parameter path absent from argspec or wrong type/nesting | Pattern 11 — stale EXAMPLES |
+| EXAMPLES parameter path absent from argspec or wrong type/nesting | Pattern 11 — stale EXAMPLES (from Step 3 `validate_examples.py`; do not re-walk here) |
 
 ### 5. Check module EXAMPLES
 
-Read `EXAMPLES` from `plugins/modules/<prefix><module>.py`. For each YAML task
-fragment, map parameter paths under `config` (and top-level module options) to
-argspec leaves. Flag removed names, renames, type mismatches, and invalid `state`
-values. Cross-check against integration test task vars when unsure.
+Pattern 11 structural checks run in scanner Step 3 (`validate_examples.py`). **Do not**
+repeat that walk here except for:
+
+- Embedded examples inside `DOCUMENTATION` (not covered by the script)
+- Modules the script skipped (YAML parse failure) — manual walk per [patterns.md](patterns.md) Pattern 11
+
+For those cases, map parameter paths to argspec leaves and cross-check integration test
+task vars when unsure.
 
 ### 6. Check types
 

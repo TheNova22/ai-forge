@@ -48,7 +48,8 @@ Module provides skills for network automation workflows specific to Ansible netw
 **Required Dependencies:**
 
 - `gh` CLI — authenticated with `gh auth login` (used for GitHub queries and repo cloning)
-- Python 3.8+ — required by `scan_mechanical_signals.py` (network-issues-scanner)
+- Python 3.8+ — required by `scan_mechanical_signals.py` and `validate_examples.py` (network-issues-scanner)
+- PyYAML — required by scanner scripts for `config/repos.yaml` loading
 - `ansible-test` — required by network-issues-resolver for unit and sanity validation
 - `tox` with `tox-ansible` — required by network-issues-resolver for test execution
 

@@ -12,19 +12,36 @@ For each finding, locates a matching integration testcase as a replacement refer
 Outputs findings in the scanner-hits JSON schema for direct validator handoff.
 
 Usage:
-  python scripts/validate_examples.py /path/to/cisco.nxos [--module nxos_hsrp_interfaces] [--json]
-  python scripts/validate_examples.py /path/to/cisco.iosxr --json
+  python scripts/validate_examples.py /path/to/cisco.nxos --repo cisco.nxos --json
+  python scripts/validate_examples.py /path/to/cisco.iosxr --repo cisco.iosxr --module iosxr_bgp_global
+  python scripts/validate_examples.py /path/to/cisco.iosxr --repos cisco.ios,cisco.nxos --json
+  python scripts/validate_examples.py /path/to/cisco.iosxr --repos-config /path/to/repos.yaml --json
+
+Paths and collection metadata load from config/repos.yaml via scanner_config.py (override
+with --repos-config). --repo and --repos scope which collection entry applies; out-of-scope
+clones are skipped (exit 0).
 """
 
 from __future__ import annotations
 
 import argparse
 import ast
-import json
 import re
 import sys
 from pathlib import Path
 from typing import Any
+
+from scanner_config import (
+    ReposConfig,
+    add_scanner_cli_args,
+    check_repo_scope,
+    collection_path,
+    load_repos_config,
+    parse_repos_arg,
+    resolve_module_prefix,
+    resolve_platform,
+)
+from scanner_finding import dumps_hits, file_line, make_hit
 
 try:
     import yaml
@@ -402,6 +419,8 @@ def _flatten_tasks(data: Any, depth: int = 0) -> list[dict]:
 
 def find_integration_testcase(
     collection_root: Path,
+    config: ReposConfig,
+    platform: str,
     module_stem: str,
     param_path: str,
     state: str | None,
@@ -411,7 +430,7 @@ def find_integration_testcase(
     Returns a repo-relative path (e.g. tests/integration/targets/.../merged.yaml)
     or None if not found.
     """
-    integration_root = collection_root / "tests" / "integration" / "targets"
+    integration_root = collection_path(collection_root, config, "integration_tests", platform)
     if not integration_root.is_dir():
         return None
 
@@ -469,58 +488,44 @@ def _build_finding(
     collection_root: Path,
     integration_ref: str | None,
 ) -> dict[str, Any]:
-    rel = str(module_file.relative_to(collection_root))
     notes_parts = []
     if integration_ref:
         notes_parts.append(f"Integration ref: {integration_ref}")
     if raw.get("expected_type"):
         notes_parts.append(f"expected: {raw['expected_type']}")
-    return {
-        "repo": repo,
-        "module": module,
-        "parameter": raw["parameter"],
-        "file": f"{rel}:{raw['line']}",
-        "line": raw["line"],
-        "pattern": "11",
-        "issue": raw["issue"],
-        "confidence": raw["confidence"],
-        "notes": "; ".join(notes_parts),
-    }
+    param = raw["parameter"]
+    return make_hit(
+        repo=repo,
+        module=module,
+        parameter=param,
+        pattern="11",
+        issue=raw["issue"],
+        confidence=raw["confidence"],
+        file_path=module_file,
+        collection_root=collection_root,
+        line=raw["line"],
+        notes="; ".join(notes_parts),
+        potential_fix=(
+            f"Update EXAMPLES in plugins/modules/{module}.py to match current "
+            f"argspec for {param}"
+        ),
+    )
 
 
 # ---------------------------------------------------------------------------
 # Collection / module discovery
 # ---------------------------------------------------------------------------
 
-def detect_platform(collection_root: Path) -> str | None:
-    net_dir = collection_root / "plugins" / "module_utils" / "network"
-    if not net_dir.is_dir():
-        return None
-    platforms = [
-        p.name for p in sorted(net_dir.iterdir())
-        if p.is_dir() and p.name != "__pycache__" and not p.name.startswith("_")
-    ]
-    return platforms[0] if platforms else None
-
-
-def infer_repo(collection_root: Path) -> str:
-    parts = collection_root.parts
-    namespaces = {"cisco", "arista", "ansible", "junipernetworks", "vyos", "frr"}
-    for i, part in enumerate(parts[:-1]):
-        if part in namespaces:
-            return f"{part}.{parts[i + 1]}"
-    return collection_root.name
-
-
 def enumerate_modules(
     collection_root: Path,
+    config: ReposConfig,
     platform: str,
+    prefix: str,
     module_filter: str | None,
 ) -> list[tuple[str, Path, Path]]:
     """Return (module_stem, argspec_path, module_path) for each processable module."""
-    argspec_root = (
-        collection_root / "plugins" / "module_utils" / "network" / platform / "argspec"
-    )
+    argspec_root = collection_path(collection_root, config, "argspec", platform)
+    modules_dir = collection_path(collection_root, config, "modules", platform)
     if not argspec_root.is_dir():
         return []
 
@@ -529,18 +534,17 @@ def enumerate_modules(
         if not argspec_dir.is_dir():
             continue
         stem = argspec_dir.name
-        if module_filter and stem not in module_filter and f"{platform}_{stem}" not in module_filter:
+        if module_filter and stem not in module_filter and f"{prefix}{stem}" not in module_filter:
             continue
 
         argspec_path = argspec_dir / f"{stem}.py"
         if not argspec_path.is_file():
             continue
 
-        # Prefer platform-prefixed module file, fall back to bare stem
         module_path = None
         for candidate in [
-            collection_root / "plugins" / "modules" / f"{platform}_{stem}.py",
-            collection_root / "plugins" / "modules" / f"{stem}.py",
+            modules_dir / f"{prefix}{stem}.py",
+            modules_dir / f"{stem}.py",
         ]:
             if candidate.is_file():
                 module_path = candidate
@@ -557,8 +561,20 @@ def enumerate_modules(
 # Main
 # ---------------------------------------------------------------------------
 
-def run(collection_root: Path, module_filter: str | None, as_json: bool) -> int:
-    platform = detect_platform(collection_root)
+def run(
+    collection_root: Path,
+    config: ReposConfig,
+    repo_name: str,
+    module_filter: str | None,
+    as_json: bool,
+    platform_hint: str | None = None,
+) -> int:
+    platform = resolve_platform(
+        collection_root,
+        config,
+        repo_name=repo_name,
+        platform_hint=platform_hint,
+    )
     if not platform:
         print(
             f"ERROR: no platform found under {collection_root}/plugins/module_utils/network/",
@@ -566,8 +582,8 @@ def run(collection_root: Path, module_filter: str | None, as_json: bool) -> int:
         )
         return 1
 
-    repo = infer_repo(collection_root)
-    modules = enumerate_modules(collection_root, platform, module_filter)
+    prefix = resolve_module_prefix(config, platform, repo_name)
+    modules = enumerate_modules(collection_root, config, platform, prefix, module_filter)
     if not modules:
         print(f"No modules found (platform={platform}, filter={module_filter!r})", file=sys.stderr)
         return 0
@@ -597,13 +613,13 @@ def run(collection_root: Path, module_filter: str | None, as_json: bool) -> int:
             )
             for raw in raw_findings:
                 ref = find_integration_testcase(
-                    collection_root, stem, raw["parameter"], task["state"]
+                    collection_root, config, platform, stem, raw["parameter"], task["state"]
                 )
-                finding = _build_finding(repo, module_name, raw, module_path, collection_root, ref)
+                finding = _build_finding(repo_name, module_name, raw, module_path, collection_root, ref)
                 all_findings.append(finding)
 
     if as_json:
-        print(json.dumps({"scan_date": "", "findings": all_findings}, indent=2))
+        print(dumps_hits(all_findings))
     else:
         _print_table(all_findings)
         print(
@@ -624,7 +640,7 @@ def _print_table(findings: list[dict]) -> None:
         [
             f["module"],
             f["parameter"][:45],
-            f["file"],
+            file_line(f),
             f["confidence"],
             f["issue"][:65],
         ]
@@ -654,11 +670,46 @@ def main() -> None:
         description="Pattern 11: structural EXAMPLES vs argspec validator"
     )
     parser.add_argument("collection_root", type=Path, help="Root of the collection clone")
+    add_scanner_cli_args(parser)
     parser.add_argument("--module", help="Only check this module (stem or full name)")
+    parser.add_argument("--platform", help="Platform name override (e.g. iosxr)")
     parser.add_argument("--json", dest="as_json", action="store_true", help="Output JSON")
     args = parser.parse_args()
 
-    sys.exit(run(args.collection_root, args.module, args.as_json))
+    if args.repo and args.repos:
+        print("warning: --repo and --repos both set; using --repo", file=sys.stderr)
+
+    try:
+        config = load_repos_config(args.repos_config)
+    except (FileNotFoundError, ValueError) as exc:
+        print(str(exc), file=sys.stderr)
+        sys.exit(1)
+
+    repos_list = parse_repos_arg(args.repos)
+    resolved_repo, in_scope = check_repo_scope(
+        args.collection_root,
+        config,
+        repo=args.repo,
+        repos=repos_list,
+    )
+    if not in_scope:
+        print(
+            f"skip: {resolved_repo} not in scope "
+            f"(repo={args.repo!r}, repos={repos_list!r})",
+            file=sys.stderr,
+        )
+        sys.exit(0)
+
+    sys.exit(
+        run(
+            args.collection_root,
+            config,
+            resolved_repo,
+            args.module,
+            args.as_json,
+            platform_hint=args.platform,
+        )
+    )
 
 
 if __name__ == "__main__":

@@ -1,29 +1,44 @@
 #!/usr/bin/env python3
 """Mechanical pre-scan for common parser gap signals in network resource modules.
 
-This script performs fast, repo-local pattern matching across the full gap
-catalog (Patterns 1–11: coverage, boolean toggles, negate capture,
-generate/parse symmetry, stale parsers, compound CLI setval, stale EXAMPLES,
-and more). It produces candidate findings for agent review —
-not definitive gap reports.
+This script performs fast, repo-local pattern matching across Patterns 1–10
+(coverage, boolean toggles, negate capture, generate/parse symmetry, stale
+parsers, compound CLI setval, and more). Pattern 11 (stale EXAMPLES) is
+handled by validate_examples.py in the same Step 3 pipeline. Produces
+candidate findings for agent review — not definitive gap reports.
 
 Usage:
-  python scripts/scan_mechanical_signals.py /path/to/cisco.iosxr
-  python scripts/scan_mechanical_signals.py /path/to/cisco.iosxr --json
-  python scripts/scan_mechanical_signals.py /path/to/cisco.iosxr --module iosxr_bgp_global
-  python scripts/scan_mechanical_signals.py /path/to/cisco.iosxr --platform iosxr
+  python scripts/scan_mechanical_signals.py /path/to/cisco.iosxr --repo cisco.iosxr --json
+  python scripts/scan_mechanical_signals.py /path/to/cisco.iosxr --repos cisco.ios,cisco.nxos --json
+  python scripts/scan_mechanical_signals.py /path/to/cisco.iosxr --module iosxr_bgp_global --repo cisco.iosxr
+  python scripts/scan_mechanical_signals.py /path/to/cisco.iosxr --platform iosxr --repos-config /path/to/repos.yaml
 
-Requires: local clone of the collection repository.
+Paths and collection metadata load from config/repos.yaml via scanner_config.py (override
+with --repos-config). --repo and --repos scope which collection entry applies; out-of-scope
+clones are skipped (exit 0).
+
+Requires: local clone of the collection repository; PyYAML (for repos.yaml).
 """
 
 from __future__ import annotations
 
 import argparse
 import ast
-import json
 import re
 import sys
 from pathlib import Path
+
+from scanner_config import (
+    ReposConfig,
+    add_scanner_cli_args,
+    check_repo_scope,
+    collection_path,
+    load_repos_config,
+    parse_repos_arg,
+    resolve_module_prefix,
+    resolve_platform,
+)
+from scanner_finding import dumps_hits, file_line, make_hit
 
 
 SET_SUBOPTION_RE = re.compile(
@@ -54,12 +69,6 @@ VALID_COMP_PATH_RE = re.compile(r"^[\w][\w.]*$")
 # Matches Jinja variable expressions in setval strings
 JINJA_VAR_RE = re.compile(r"\{\{[^}]+\}\}")
 
-# Matches the EXAMPLES block in a module file
-EXAMPLES_BLOCK_RE = re.compile(
-    r'^EXAMPLES\s*=\s*r?(?:"""(.*?)"""|\'\'\'(.*?)\'\'\')',
-    re.DOTALL | re.MULTILINE,
-)
-
 # Argspec metadata keys — not CLI parameter paths
 ARGS_META_KEYS = frozenset(
     {
@@ -86,38 +95,7 @@ ARGS_META_KEYS = frozenset(
 
 MODULE_LEVEL_KEYS = frozenset({"state", "running_config", "gather_network_resources", "config"})
 
-# YAML/Ansible task structural keys to ignore when scanning EXAMPLES
-TASK_STRUCTURAL_KEYS = frozenset(
-    {
-        "name",
-        "register",
-        "vars",
-        "block",
-        "rescue",
-        "always",
-        "tasks",
-        "hosts",
-        "gather_facts",
-        "become",
-        "become_user",
-        "ignore_errors",
-        "when",
-        "loop",
-        "with_items",
-        "notify",
-        "tags",
-        "delegate_to",
-        "no_log",
-        "failed_when",
-        "changed_when",
-        "until",
-        "retries",
-        "delay",
-        "environment",
-        "collections",
-        "ansible",
-    }
-)
+_COLLECTION_ROOT: Path | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -125,30 +103,26 @@ TASK_STRUCTURAL_KEYS = frozenset(
 # ---------------------------------------------------------------------------
 
 
-def find_argspec_files(collection_root: Path, platform: str) -> list[Path]:
-    argspec_dir = collection_root / "plugins/module_utils/network" / platform / "argspec"
+def find_argspec_files(
+    collection_root: Path,
+    config: ReposConfig,
+    platform: str,
+) -> list[Path]:
+    argspec_dir = collection_path(collection_root, config, "argspec", platform)
     if not argspec_dir.is_dir():
         return []
     return sorted(p for p in argspec_dir.rglob("*.py") if p.name != "__init__.py")
 
 
-def find_rm_template_files(collection_root: Path, platform: str) -> list[Path]:
-    tmpl_dir = collection_root / "plugins/module_utils/network" / platform / "rm_templates"
+def find_rm_template_files(
+    collection_root: Path,
+    config: ReposConfig,
+    platform: str,
+) -> list[Path]:
+    tmpl_dir = collection_path(collection_root, config, "rm_templates", platform)
     if not tmpl_dir.is_dir():
         return []
     return sorted(p for p in tmpl_dir.rglob("*.py") if p.name != "__init__.py")
-
-
-def find_module_file(collection_root: Path, prefix: str, module_stem: str) -> Path | None:
-    """Locate the plugin module file for a given module stem."""
-    candidates = [
-        collection_root / "plugins/modules" / f"{prefix}{module_stem}.py",
-        collection_root / "plugins/modules" / f"{module_stem}.py",
-    ]
-    for p in candidates:
-        if p.is_file():
-            return p
-    return None
 
 
 def module_name_from_path(path: Path, prefix: str) -> str:
@@ -721,126 +695,6 @@ def scan_compound_cli_setval(
     return findings
 
 
-def _collect_yaml_keys(obj: object, result: set | None = None, depth: int = 0) -> set:
-    """Recursively collect all string keys from a parsed YAML object."""
-    if result is None:
-        result = set()
-    if depth > 12:
-        return result
-    if isinstance(obj, dict):
-        for k, v in obj.items():
-            if isinstance(k, str):
-                result.add(k)
-            _collect_yaml_keys(v, result, depth + 1)
-    elif isinstance(obj, list):
-        for item in obj:
-            _collect_yaml_keys(item, result, depth + 1)
-    return result
-
-
-def scan_examples_vs_argspec(
-    argspec_path: Path,
-    collection_root: Path,
-    prefix: str,
-    module: str,
-    repo: str,
-) -> list[dict]:
-    """Pattern 11: stale parameter names or structures in module EXAMPLES vs current argspec."""
-    module_stem = argspec_path.stem
-    module_file = find_module_file(collection_root, prefix, module_stem)
-    if not module_file:
-        return []
-
-    text = module_file.read_text(encoding="utf-8", errors="replace")
-    examples_match = EXAMPLES_BLOCK_RE.search(text)
-    if not examples_match:
-        return []
-
-    # group(1) = """ body, group(2) = ''' body
-    examples_text = examples_match.group(1) or examples_match.group(2) or ""
-    if not examples_text.strip():
-        return []
-
-    examples_line = text[: examples_match.start()].count("\n") + 1
-
-    # Build argspec reference sets
-    leaves = extract_argspec_leaves(argspec_path)
-    if not leaves:
-        return []
-
-    # All valid parameter key names from argspec (all path segments)
-    all_argspec_keys: set[str] = set()
-    for path, _, _ in leaves:
-        for seg in path.split("."):
-            all_argspec_keys.add(seg)
-
-    findings: list[dict] = []
-
-    # Try YAML parse for structural checking
-    try:
-        import yaml  # noqa: PLC0415
-
-        tasks = yaml.safe_load(examples_text)
-        if isinstance(tasks, list):
-            example_keys = _collect_yaml_keys(tasks)
-            # Remove Ansible/task structural keys
-            example_keys -= TASK_STRUCTURAL_KEYS
-            # Remove keys that look like module FQCNs (contain dots or start with platform prefix)
-            example_keys = {
-                k for k in example_keys
-                if "." not in k and not k.startswith(("ansible_", "cisco_", "arista_"))
-            }
-            # Flag example keys that don't appear anywhere in the argspec
-            stale = example_keys - all_argspec_keys - MODULE_LEVEL_KEYS
-            if stale:
-                findings.append(
-                    _finding(
-                        repo,
-                        module,
-                        ", ".join(sorted(stale)),
-                        module_file,
-                        examples_line,
-                        (
-                            f"EXAMPLES contains parameter name(s) not found in current argspec: "
-                            f"{sorted(stale)} — may be removed or renamed options"
-                        ),
-                        "Update EXAMPLES in plugins/modules/<prefix><module>.py to match argspec",
-                        "11",
-                        "candidate",
-                    )
-                )
-            return findings
-    except Exception:  # noqa: BLE001
-        pass
-
-    # Fallback: regex-based key extraction from indented YAML-like content
-    example_keys: set[str] = set()
-    for m in re.finditer(r"^\s{4,}(\w+)\s*:", examples_text, re.MULTILINE):
-        key = m.group(1)
-        if key not in TASK_STRUCTURAL_KEYS and not key.startswith(("ansible_", "cisco_", "arista_")):
-            example_keys.add(key)
-
-    stale = example_keys - all_argspec_keys - MODULE_LEVEL_KEYS
-    if stale:
-        findings.append(
-            _finding(
-                repo,
-                module,
-                ", ".join(sorted(stale)),
-                module_file,
-                examples_line,
-                (
-                    f"EXAMPLES contains parameter name(s) not found in current argspec "
-                    f"(regex fallback): {sorted(stale)}"
-                ),
-                "Update EXAMPLES in plugins/modules/<prefix><module>.py to match argspec",
-                "11",
-                "candidate",
-            )
-        )
-    return findings
-
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -857,17 +711,18 @@ def _finding(
     pattern: str,
     confidence: str,
 ) -> dict:
-    loc = f"{location_path}:{line}" if location_path else ""
-    return {
-        "repo": repo,
-        "module": module,
-        "parameter": parameter,
-        "location": loc,
-        "issue": issue,
-        "potential_fix": potential_fix,
-        "pattern": pattern,
-        "confidence": confidence,
-    }
+    return make_hit(
+        repo=repo,
+        module=module,
+        parameter=parameter,
+        pattern=pattern,
+        issue=issue,
+        confidence=confidence,
+        file_path=location_path,
+        collection_root=_COLLECTION_ROOT,
+        line=line,
+        potential_fix=potential_fix,
+    )
 
 
 def _line_number(text: str, needle: str) -> int:
@@ -878,103 +733,72 @@ def _line_number(text: str, needle: str) -> int:
 
 
 # ---------------------------------------------------------------------------
-# Platform inference
-# ---------------------------------------------------------------------------
-
-_KNOWN_PLATFORMS = frozenset({"ios", "nxos", "iosxr", "eos", "junos", "vyos", "nso", "exos"})
-
-
-def infer_platform(collection_root: Path, platform_hint: str | None = None) -> str | None:
-    if platform_hint:
-        return platform_hint
-    net_dir = collection_root / "plugins/module_utils/network"
-    if not net_dir.is_dir():
-        return None
-    children = [
-        p.name
-        for p in net_dir.iterdir()
-        if p.is_dir() and not p.name.startswith("_") and p.name != "__pycache__"
-    ]
-    if len(children) == 1:
-        return children[0]
-    if len(children) > 1:
-        # Prefer a known platform name to avoid picking up non-platform subdirs
-        known = [c for c in children if c in _KNOWN_PLATFORMS]
-        if len(known) == 1:
-            return known[0]
-        print(
-            f"warning: multiple platform dirs found under {net_dir}: {children}. "
-            "Use --platform to specify one.",
-            file=sys.stderr,
-        )
-    return None
-
-
-def infer_prefix(platform: str) -> str:
-    return f"{platform}_"
-
-
-# ---------------------------------------------------------------------------
 # Collection scan
 # ---------------------------------------------------------------------------
 
 
 def scan_collection(
     collection_root: Path,
+    config: ReposConfig,
     repo: str | None = None,
     module_filter: str | None = None,
     platform_hint: str | None = None,
 ) -> list[dict]:
+    global _COLLECTION_ROOT
     collection_root = collection_root.resolve()
-    repo_name = repo or collection_root.name
-    platform = infer_platform(collection_root, platform_hint)
-    if not platform:
-        print(f"error: could not infer platform under {collection_root}", file=sys.stderr)
-        return []
-
-    prefix = infer_prefix(platform)
-    argspec_files = find_argspec_files(collection_root, platform)
-    template_files = find_rm_template_files(collection_root, platform)
-
-    if module_filter:
-        argspec_files = [
-            f for f in argspec_files
-            if module_filter in f.stem or module_filter == module_name_from_path(f, prefix)
-        ]
-        template_files = [
-            f for f in template_files
-            if module_filter in f.stem or module_filter == module_name_from_path(f, prefix)
-        ]
-
-    template_by_stem = {p.stem: p for p in template_files}
-    all_findings: list[dict] = []
-
-    for argspec_path in argspec_files:
-        stem = argspec_path.stem
-        module = module_name_from_path(argspec_path, prefix)
-        tmpl = template_by_stem.get(stem)
-
-        all_findings.extend(
-            scan_argspec_set_comparison_path_mismatch(argspec_path, tmpl, module, repo_name)
+    _COLLECTION_ROOT = collection_root
+    try:
+        repo_name = repo or collection_root.name
+        platform = resolve_platform(
+            collection_root,
+            config,
+            repo_name=repo_name,
+            platform_hint=platform_hint,
         )
-        all_findings.extend(scan_argspec_coverage_gaps(argspec_path, tmpl, module, repo_name))
-        if tmpl:
-            all_findings.extend(scan_stale_parser_paths(argspec_path, tmpl, module, repo_name))
+        if not platform:
+            print(f"error: could not infer platform under {collection_root}", file=sys.stderr)
+            return []
 
-        # Pattern 11: EXAMPLES vs argspec
-        all_findings.extend(
-            scan_examples_vs_argspec(argspec_path, collection_root, prefix, module, repo_name)
-        )
+        prefix = resolve_module_prefix(config, platform, repo_name)
+        argspec_files = find_argspec_files(collection_root, config, platform)
+        template_files = find_rm_template_files(collection_root, config, platform)
 
-    for template_path in template_files:
-        module = module_name_from_path(template_path, prefix)
-        all_findings.extend(scan_template_static_setval(template_path, module, repo_name))
-        all_findings.extend(scan_getval_missing_negate(template_path, module, repo_name))
-        all_findings.extend(scan_getval_without_setval(template_path, module, repo_name))
-        all_findings.extend(scan_result_defined_only(template_path, module, repo_name))
-        all_findings.extend(scan_compound_cli_setval(template_path, module, repo_name))
+        if module_filter:
+            argspec_files = [
+                f for f in argspec_files
+                if module_filter in f.stem or module_filter == module_name_from_path(f, prefix)
+            ]
+            template_files = [
+                f for f in template_files
+                if module_filter in f.stem or module_filter == module_name_from_path(f, prefix)
+            ]
 
-    return all_findings
+        template_by_stem = {p.stem: p for p in template_files}
+        all_findings: list[dict] = []
+
+        for argspec_path in argspec_files:
+            stem = argspec_path.stem
+            module = module_name_from_path(argspec_path, prefix)
+            tmpl = template_by_stem.get(stem)
+
+            all_findings.extend(
+                scan_argspec_set_comparison_path_mismatch(argspec_path, tmpl, module, repo_name)
+            )
+            all_findings.extend(scan_argspec_coverage_gaps(argspec_path, tmpl, module, repo_name))
+            if tmpl:
+                all_findings.extend(scan_stale_parser_paths(argspec_path, tmpl, module, repo_name))
+
+        for template_path in template_files:
+            module = module_name_from_path(template_path, prefix)
+            all_findings.extend(scan_template_static_setval(template_path, module, repo_name))
+            all_findings.extend(scan_getval_missing_negate(template_path, module, repo_name))
+            all_findings.extend(scan_getval_without_setval(template_path, module, repo_name))
+            all_findings.extend(scan_result_defined_only(template_path, module, repo_name))
+            all_findings.extend(scan_compound_cli_setval(template_path, module, repo_name))
+
+        return all_findings
+    finally:
+        _COLLECTION_ROOT = None
 
 
 # ---------------------------------------------------------------------------
@@ -985,38 +809,63 @@ def scan_collection(
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("collection_root", type=Path, help="Path to collection repo clone")
-    parser.add_argument("--repo", help="Repo short name override (e.g. cisco.iosxr)")
+    add_scanner_cli_args(parser)
     parser.add_argument("--module", help="Limit scan to a single module (e.g. iosxr_bgp_global)")
     parser.add_argument("--platform", help="Platform name override (e.g. iosxr) — inferred if omitted")
     parser.add_argument("--json", action="store_true", help="Emit JSON instead of table")
     args = parser.parse_args()
 
+    if args.repo and args.repos:
+        print("warning: --repo and --repos both set; using --repo", file=sys.stderr)
+
     if not args.collection_root.is_dir():
         print(f"error: not a directory: {args.collection_root}", file=sys.stderr)
         return 1
 
+    try:
+        config = load_repos_config(args.repos_config)
+    except (FileNotFoundError, ValueError) as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+
+    repos_list = parse_repos_arg(args.repos)
+    resolved_repo, in_scope = check_repo_scope(
+        args.collection_root,
+        config,
+        repo=args.repo,
+        repos=repos_list,
+    )
+    if not in_scope:
+        print(
+            f"skip: {resolved_repo} not in scope "
+            f"(repo={args.repo!r}, repos={repos_list!r})",
+            file=sys.stderr,
+        )
+        return 0
+
     findings = scan_collection(
         args.collection_root,
-        repo=args.repo,
+        config,
+        repo=resolved_repo,
         module_filter=args.module,
         platform_hint=args.platform,
     )
 
     if args.json:
-        print(json.dumps(findings, indent=2))
+        print(dumps_hits(findings))
         return 0
 
     if not findings:
         print("No mechanical gap signals found.")
         return 0
 
-    headers = ["Repo", "Module", "Parameter", "Location", "Pattern", "Issue", "Confidence"]
+    headers = ["Repo", "Module", "Parameter", "File:Line", "Pattern", "Issue", "Confidence"]
     rows = [
         [
             f["repo"],
             f["module"],
             f["parameter"],
-            f["location"],
+            file_line(f),
             f["pattern"],
             f["issue"],
             f["confidence"],

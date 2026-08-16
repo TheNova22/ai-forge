@@ -18,7 +18,7 @@ allowed-tools:
   - Write
   - Glob
   - Grep
-argument-hint: "[scanner-hits.md] [--repo cisco.iosxr]"
+argument-hint: "[scanner-hits.md] [--module iosxr_bgp_global]"
 ---
 
 # Skill: network-issues-validator
@@ -34,7 +34,10 @@ argument-hint: "[scanner-hits.md] [--repo cisco.iosxr]"
 2. User-provided path to scanner output
 3. Inline table or JSON pasted by the user
 
-`--repo` or `--module` limits validation to that subset.
+**Scope is defined by the scanner hits artifact** — each row carries its own `repo` and
+`module`. When invoked by `network-issues-orchestrator`, validate every hit in the file;
+do not re-apply scanner `--repo`/`--repos` flags. Optional `--module` filters hits to
+one module when re-running the validator alone on an existing hits file.
 
 ---
 
@@ -51,7 +54,9 @@ Validation Progress:
 
 ### Step 1 — Load scanner hits
 
-Parse markdown table or JSON `hits` array. Record count by confidence.
+Parse markdown table or JSON (`hits[]` array, or a bare array from Step 3 script output).
+Record count by confidence and distinct repos present in the hit rows — that is the
+validation scope. Each hit uses `file` + `line` (not a combined `location` field).
 
 ### Step 2 — Resolve collection source paths
 
@@ -94,4 +99,4 @@ Handoff: [network-issues-resolver](../network-issues-resolver/SKILL.md) fixes **
 | [crosswalk.md](../network-issues-knowledge/crosswalk.md) | Crosswalk procedure |
 | [checklists.md](../network-issues-knowledge/checklists.md) | Test and compound-CLI re-check |
 | [validated-report-template.md](reference/validated-report-template.md) | Step 5 — output format |
-| [repos.yaml](../network-issues-scanner/config/repos.yaml) | Repo paths and layout |
+| [repos.yaml](../network-issues-scanner/config/repos.yaml) | Path layout when opening source files cited in hits |

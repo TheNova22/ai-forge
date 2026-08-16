@@ -63,6 +63,10 @@ If playbook directory is missing and not `--skip-device`: ask the user; suggest
 Present confirmed gaps and ask the user to pick **one** issue (unless `--issue N`).
 Zero confirmed gaps → stop.
 
+**No collection-scope flags.** Scope is the single confirmed gap row from the validated
+report (`Repo`, `Module`, `Parameter`, `File:Line`, `Pattern`). Use `repos.yaml` only to
+resolve path templates for that issue's `Repo` entry — not to select which collections to scan.
+
 ## Modes
 
 ### Default (lab)
@@ -147,4 +151,4 @@ Do not commit, push, or open a PR unless user requests it in step 12. Use `--dra
 | [reference/device-alternatives.md](reference/device-alternatives.md) | `--skip-device`, mocks, code-only evidence |
 | [reference/upstream-pr.md](reference/upstream-pr.md) | Draft PR template, snippets, fork remotes, unit-only evidence |
 | [../network-issues-knowledge/patterns.md](../network-issues-knowledge/patterns.md) | Gap patterns and fixes |
-| [../network-issues-scanner/config/repos.yaml](../network-issues-scanner/config/repos.yaml) | Collection paths |
+| [../network-issues-scanner/config/repos.yaml](../network-issues-scanner/config/repos.yaml) | Path templates — look up `platform` / `module_prefix` for the issue's `Repo` |

@@ -1,5 +1,7 @@
 ---
 # Repositories scanned by network-issues-scanner
+# Consumed by: agent workflow (Step 1 clone list) and scanner scripts via
+# scripts/scanner_config.py (path templates, platform, module_prefix).
 # GitHub org: ansible-collections
 
 collections:

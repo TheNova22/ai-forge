@@ -29,7 +29,9 @@ Parse `network-issues-report.json` → `confirmed[]`, or the **Confirmed gaps** 
 
 ## Collection paths
 
-From [repos.yaml](../../network-issues-scanner/config/repos.yaml):
+Look up the confirmed gap's **Repo** field in
+[repos.yaml](../../network-issues-scanner/config/repos.yaml) `collections[]` for
+`platform` and `module_prefix`, then apply the path templates below:
 
 | Artifact | Path |
 |----------|------|

@@ -24,7 +24,7 @@ This is **candidate output** for `network-issues-validator` — not the final re
 - **Module** — full module name (`iosxr_bgp_global`)
 - **Parameter** — dotted argspec path (`neighbors.shutdown.set`)
 - **File:Line** — repo-relative path with line number (primary evidence location)
-- **Pattern** — gap-patterns.md pattern number (1–11) or `generate-gap` / `coverage`
+- **Pattern** — [patterns.md](../network-issues-knowledge/patterns.md) pattern number (1–11) or `generate-gap` / `coverage`
 - **Issue** — concise description of the suspected gap and user-visible symptom
 - **Confidence** — `confirmed`, `likely`, or `candidate`
 - **Notes** — mitigating context, sibling parsers, config-class hints for validator
@@ -35,6 +35,24 @@ Sort by confidence (`confirmed` first), then severity (high first), then repo, t
 
 ## JSON handoff shape
 
-Wrapper keys: `scan_date`, `scope` (array), `modules_scanned`. Each hit in
-`hits[]` mirrors the markdown table columns: `repo`, `module`, `parameter`,
-`file`, `line`, `pattern`, `issue`, `confidence`, `notes`.
+**Step 3 scripts** (`--json`): each emits a JSON **array** of hit objects (same shape
+from both scripts). The agent concatenates arrays from all clones, then wraps for Step 7
+using `scanner_finding.wrap_hits_report()` or equivalent.
+
+**Step 7 file** (`network-issues-scanner-hits.json`): wrapper keys `scan_date`, `scope`
+(array), `modules_scanned`, and `hits[]`. Each hit object:
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `repo` | string | Collection name |
+| `module` | string | Full module name |
+| `parameter` | string | Dotted argspec path |
+| `file` | string | Repo-relative path (no line suffix) |
+| `line` | number | Line number in `file` |
+| `pattern` | string | Pattern number (1–11) |
+| `issue` | string | Suspected gap description |
+| `confidence` | string | `confirmed`, `likely`, or `candidate` |
+| `notes` | string | Mitigating context, integration refs (Pattern 11) |
+| `potential_fix` | string | Brief fix direction for validator/resolver |
+
+Markdown **File:Line** column = `{file}:{line}`.
